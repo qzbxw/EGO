@@ -4,4 +4,5 @@
 [Go Backend](https://ego-fwww.onrender.com)
 <hr>
 
-[Svelte Frontend](ego-q.vercel.app)
+[Svelte Frontend](https://ego-q.vercel.app)
+
