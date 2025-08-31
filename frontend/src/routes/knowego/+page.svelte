@@ -39,33 +39,33 @@
   const formatNumber = (n: number | undefined | null) => nf.format(Number(n) || 0);
   const demoScenarios = [
     {
-      title: "Code Analysis & Debugging",
+      title: $t('knowego.demo_scenario_code'),
       steps: [
-        { text: "User uploads Python file with performance issue", icon: 'Upload', output: "def calculate_fibonacci(n):\n    if n <= 1:\n        return n\n    return calculate_fibonacci(n-1) + calculate_fibonacci(n-2)\n\nresult = calculate_fibonacci(50)  # This will be slow!" },
-        { text: "EGO analyzes code and identifies bottleneck", icon: 'Brain', output: null },
-        { text: "Uses EgoCodeExec to test optimization", icon: 'Terminal', output: "Testing optimized version...\n✓ Execution time: 0.001s (was: 30s+)\n✓ Memory usage: 8KB (was: 2GB+)" },
-        { text: "Proposes memoization solution", icon: 'Zap', output: "from functools import lru_cache\n\n@lru_cache(maxsize=None)\ndef calculate_fibonacci(n):\n    if n <= 1:\n        return n\n    return calculate_fibonacci(n-1) + calculate_fibonacci(n-2)" },
-        { text: "Explains improvements and alternatives", icon: 'Sparkles', output: null }
+        { text: $t('knowego.demo_step_upload'), icon: 'Upload', output: "def calculate_fibonacci(n):\n    if n <= 1:\n        return n\n    return calculate_fibonacci(n-1) + calculate_fibonacci(n-2)\n\nresult = calculate_fibonacci(50)  # This will be slow!" },
+        { text: $t('knowego.demo_step_analyze'), icon: 'Brain', output: null },
+        { text: $t('knowego.demo_step_test'), icon: 'Terminal', output: "Testing optimized version...\n✓ Execution time: 0.001s (was: 30s+)\n✓ Memory usage: 8KB (was: 2GB+)" },
+        { text: $t('knowego.demo_step_solution'), icon: 'Zap', output: "from functools import lru_cache\n\n@lru_cache(maxsize=None)\ndef calculate_fibonacci(n):\n    if n <= 1:\n        return n\n    return calculate_fibonacci(n-1) + calculate_fibonacci(n-2)" },
+        { text: $t('knowego.demo_step_explain'), icon: 'Sparkles', output: null }
       ]
     },
     {
-      title: "Research & Analysis",
+      title: $t('knowego.demo_scenario_research'),
       steps: [
-        { text: "User asks about quantum computing", icon: 'Brain', output: null },
-        { text: "EgoSearch finds current information", icon: 'Globe', output: "Search: 'quantum computing 2024 breakthrough IBM Google'\nFound 847 relevant sources\nAnalyzing source credibility..." },
-        { text: "EgoTube analyzes expert videos", icon: 'Youtube', output: "Processing video: 'IBM Quantum Network 2024'\nExtracting key insights\n45:30 → 3 min summary" },
-        { text: "EgoCalc validates mathematical models", icon: 'Calculator', output: "Quantum supremacy calculation:\n• Classical: 2^n operations\n• Quantum: √n operations\n• For n=300: 10^90 vs 17 operations" },
-        { text: "Synthesizes comprehensive report", icon: 'CheckCircle', output: null }
+        { text: $t('knowego.demo_step_research_ask'), icon: 'Brain', output: null },
+        { text: $t('knowego.demo_step_research_search'), icon: 'Globe', output: "Search: 'quantum computing 2024 breakthrough IBM Google'\nFound 847 relevant sources\nAnalyzing source credibility..." },
+        { text: $t('knowego.demo_step_research_video'), icon: 'Youtube', output: "Processing video: 'IBM Quantum Network 2024'\nExtracting key insights\n45:30 → 3 min summary" },
+        { text: $t('knowego.demo_step_research_calc'), icon: 'Calculator', output: "Quantum supremacy calculation:\n• Classical: 2^n operations\n• Quantum: √n operations\n• For n=300: 10^90 vs 17 operations" },
+        { text: $t('knowego.demo_step_research_report'), icon: 'CheckCircle', output: null }
       ]
     },
     {
-      title: "Creative Problem Solving",
+      title: $t('knowego.demo_scenario_creative'),
       steps: [
-        { text: "User requests web application", icon: 'Code', output: null },
-        { text: "EGO plans architecture and technologies", icon: 'Brain', output: "Requirements analysis:\n• Frontend: React + TypeScript\n• Backend: Node.js + Express\n• Database: PostgreSQL\n• Deploy: Docker + Kubernetes" },
-        { text: "Generates and tests code components", icon: 'Terminal', output: "interface User {\n  id: string;\n  name: string;\n  email: string;\n}\n\nconst UserCard: React.FC<{user: User}> = ({user}) => {\n  return (\n    <div className=\"user-card\">\n      <h3>{user.name}</h3>\n      <p>{user.email}</p>\n    </div>\n  );\n};" },
-        { text: "AlterEgo reviews UX from multiple perspectives", icon: 'Users', output: "User: \"Interface is intuitive\"\nManager: \"Need analytics dashboard\"\nDeveloper: \"Code is clean and scalable\"" },
-        { text: "Creates deployment-ready application", icon: 'Rocket', output: null }
+        { text: $t('knowego.demo_step_creative_request'), icon: 'Code', output: null },
+        { text: $t('knowego.demo_step_creative_plan'), icon: 'Brain', output: "Requirements analysis:\n• Frontend: React + TypeScript\n• Backend: Node.js + Express\n• Database: PostgreSQL\n• Deploy: Docker + Kubernetes" },
+        { text: $t('knowego.demo_step_creative_generate'), icon: 'Terminal', output: "interface User {\n  id: string;\n  name: string;\n  email: string;\n}\n\nconst UserCard: React.FC<{user: User}> = ({user}) => {\n  return (\n    <div className=\"user-card\">\n      <h3>{user.name}</h3>\n      <p>{user.email}</p>\n    </div>\n  );\n};" },
+        { text: $t('knowego.demo_step_creative_review'), icon: 'Users', output: "User: \"Interface is intuitive\"\nManager: \"Need analytics dashboard\"\nDeveloper: \"Code is clean and scalable\"" },
+        { text: $t('knowego.demo_step_creative_deploy'), icon: 'Rocket', output: null }
       ]
     }
   ];
@@ -216,7 +216,7 @@
   <section class="relative px-4 sm:px-6 pt-24 pb-16 sm:pt-32 sm:pb-20 md:pt-40 md:pb-28">
     <div class="max-w-7xl mx-auto text-center">
       <div class="transition-all duration-1000 delay-500 {heroVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}">
-        <h1 class="text-3xl sm:text-5xl md:text-7xl lg:text-8xl font-black mb-6 sm:mb-8 text-text-primary leading-[0.9] tracking-tight px-2">
+        <h1 class="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black mb-6 sm:mb-8 text-text-primary leading-[0.9] tracking-tight px-2">
           <span class="bg-gradient-to-r from-accent via-text-primary to-accent-hover bg-clip-text text-transparent animate-gradient-x bg-[length:200%_200%]">
             {$t('knowego.hero_meet_ego')}
           </span>
@@ -248,7 +248,7 @@
     </div>
     <div id="features" class="max-w-7xl mx-auto mt-20 sm:mt-32 px-4 sm:px-6">
         <div class="text-center mb-12 sm:mb-16">
-          <h3 class="text-xl sm:text-2xl md:text-3xl font-bold text-text-primary mb-3 sm:mb-4 px-4">{$t('knowego.features_section_title')}</h3>
+          <h3 class="text-2xl sm:text-3xl md:text-4xl font-bold text-text-primary mb-3 sm:mb-4 px-4">{$t('knowego.features_section_title')}</h3>
           <p class="text-base sm:text-lg text-text-secondary px-4">{$t('knowego.features_section_subtitle')}</p>
         </div>
         <div class="max-w-4xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 justify-items-stretch">
@@ -287,7 +287,7 @@
   <section id="demo" class="px-4 sm:px-6 py-16 sm:py-20 md:py-32">
     <div class="max-w-5xl mx-auto">
       <div class="text-center mb-12 sm:mb-16">
-        <h2 class="text-2xl sm:text-4xl md:text-5xl font-black text-text-primary mb-4 sm:mb-6 px-4">
+        <h2 class="text-3xl sm:text-4xl md:text-5xl font-black text-text-primary mb-4 sm:mb-6 px-4">
           <span class="bg-gradient-to-r from-text-primary via-accent to-text-primary bg-clip-text text-transparent animate-gradient-x">
             {$t('knowego.demo_what_makes_different')}
           </span>
@@ -384,10 +384,54 @@
       </div>
     </div>
   </section>
+  <section class="px-4 sm:px-6 py-12 sm:py-16 md:py-20 bg-gradient-to-br from-accent/5 via-secondary/10 to-accent/5">
+    <div class="max-w-6xl mx-auto text-center">
+      <div class="relative group">
+        <div class="absolute -inset-1 bg-gradient-to-r from-accent to-accent-hover rounded-3xl blur-lg opacity-20 group-hover:opacity-30 transition duration-500"></div>
+        <div class="relative bg-secondary/80 backdrop-blur-sm rounded-3xl p-8 sm:p-12 border border-tertiary/30 shadow-2xl">
+          <div class="flex items-center justify-center gap-3 mb-6">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-green-500/20 to-emerald-500/10 flex items-center justify-center border border-green-500/30">
+              <TrendingUp class="w-6 h-6 text-green-400" />
+            </div>
+            <h2 class="text-3xl sm:text-4xl md:text-5xl font-black text-text-primary">
+              <span class="bg-gradient-to-r from-green-400 via-accent to-emerald-400 bg-clip-text text-transparent animate-gradient-x bg-[length:200%_200%]">
+                {$t('knowego.pricing_advantage_title')}
+              </span>
+            </h2>
+          </div>
+          <p class="text-lg sm:text-xl text-text-secondary mb-8 max-w-3xl mx-auto leading-relaxed">{$t('knowego.pricing_advantage_subtitle')}</p>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
+            <div class="group relative p-6 rounded-2xl bg-primary/60 border border-tertiary/30 hover:border-green-400/50 transition-all duration-300 hover:shadow-lg hover:shadow-green-400/20">
+              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500/20 to-green-500/10 flex items-center justify-center mx-auto mb-4 border border-green-500/30">
+                <Target class="w-5 h-5 text-green-400" />
+              </div>
+              <h3 class="text-lg font-bold text-text-primary mb-2">{$t('knowego.pricing_advantage_cost')}</h3>
+              <p class="text-sm text-text-secondary">vs GPT-5 & Claude 4.1 Opus</p>
+            </div>
+            <div class="group relative p-6 rounded-2xl bg-primary/60 border border-tertiary/30 hover:border-accent/50 transition-all duration-300 hover:shadow-lg hover:shadow-accent/20">
+              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-accent/20 to-accent/10 flex items-center justify-center mx-auto mb-4 border border-accent/30">
+                <Zap class="w-5 h-5 text-accent" />
+              </div>
+              <h3 class="text-lg font-bold text-text-primary mb-2">{$t('knowego.pricing_advantage_tokens')}</h3>
+              <p class="text-sm text-text-secondary">1M+ context window</p>
+            </div>
+            <div class="group relative p-6 rounded-2xl bg-primary/60 border border-tertiary/30 hover:border-purple-400/50 transition-all duration-300 hover:shadow-lg hover:shadow-purple-400/20">
+              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500/20 to-purple-500/10 flex items-center justify-center mx-auto mb-4 border border-purple-500/30">
+                <Award class="w-5 h-5 text-purple-400" />
+              </div>
+              <h3 class="text-lg font-bold text-text-primary mb-2">{$t('knowego.pricing_advantage_quality')}</h3>
+              <p class="text-sm text-text-secondary">Latest Gemini 2.5 Flash</p>
+            </div>
+          </div>
+          <p class="text-sm sm:text-base text-text-secondary mt-8 max-w-2xl mx-auto leading-relaxed">{$t('knowego.pricing_advantage_desc')}</p>
+        </div>
+      </div>
+    </div>
+  </section>
   <section class="px-4 sm:px-6 py-16 sm:py-20 md:py-32 bg-secondary/10">
     <div class="max-w-7xl mx-auto">
       <div class="text-center mb-12 sm:mb-16">
-        <h2 class="text-2xl sm:text-4xl md:text-5xl font-black mb-4 sm:mb-6 px-4">
+        <h2 class="text-3xl sm:text-4xl md:text-5xl font-black mb-4 sm:mb-6 px-4">
           <span class="bg-gradient-to-r from-text-primary via-accent to-text-primary bg-clip-text text-transparent animate-gradient-x bg-[length:200%_200%]">
             {$t('knowego.features_capabilities_title')}
           </span>
@@ -403,7 +447,7 @@
             <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-blue-500/20 to-blue-600/10 flex items-center justify-center mx-auto mb-4 sm:mb-6 border border-blue-500/30 group-hover:scale-110 transition-all duration-300 shadow-lg shadow-blue-500/20">
               <Globe class="w-6 h-6 sm:w-8 sm:h-8 text-blue-400" />
             </div>
-            <h3 class="text-lg sm:text-2xl font-bold text-text-primary mb-3 sm:mb-4 text-center">{$t('knowego.tool_egosearch_title')}</h3>
+            <h3 class="text-xl sm:text-2xl font-bold text-text-primary mb-3 sm:mb-4 text-center">{$t('knowego.tool_egosearch_title')}</h3>
             <p class="text-sm sm:text-base text-text-secondary leading-relaxed mb-3 sm:mb-4 text-center">{$t('knowego.tool_egosearch_desc')}</p>
             <div class="inline-flex items-center gap-2 text-blue-400 font-semibold w-full justify-center text-sm sm:text-base">
               <Zap class="w-3 h-3 sm:w-4 sm:h-4" />
@@ -417,7 +461,7 @@
             <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-red-500/20 to-red-600/10 flex items-center justify-center mx-auto mb-4 sm:mb-6 border border-red-500/30 group-hover:scale-110 transition-all duration-300 shadow-lg shadow-red-500/20">
               <Youtube class="w-6 h-6 sm:w-8 sm:h-8 text-red-400" />
             </div>
-            <h3 class="text-lg sm:text-2xl font-bold text-text-primary mb-3 sm:mb-4 text-center">{$t('knowego.tool_egotube_title')}</h3>
+            <h3 class="text-xl sm:text-2xl font-bold text-text-primary mb-3 sm:mb-4 text-center">{$t('knowego.tool_egotube_title')}</h3>
             <p class="text-sm sm:text-base text-text-secondary leading-relaxed mb-3 sm:mb-4 text-center">{$t('knowego.tool_egotube_desc')}</p>
             <div class="inline-flex items-center gap-2 text-red-400 font-semibold w-full justify-center text-sm sm:text-base">
               <Eye class="w-3 h-3 sm:w-4 sm:h-4" />
@@ -431,7 +475,7 @@
             <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-green-500/20 to-green-600/10 flex items-center justify-center mx-auto mb-4 sm:mb-6 border border-green-500/30 group-hover:scale-110 transition-all duration-300 shadow-lg shadow-green-500/20">
               <Terminal class="w-6 h-6 sm:w-8 sm:h-8 text-green-400" />
             </div>
-            <h3 class="text-lg sm:text-2xl font-bold text-text-primary mb-3 sm:mb-4 text-center">{$t('knowego.tool_egocodeexec_title')}</h3>
+            <h3 class="text-xl sm:text-2xl font-bold text-text-primary mb-3 sm:mb-4 text-center">{$t('knowego.tool_egocodeexec_title')}</h3>
             <p class="text-sm sm:text-base text-text-secondary leading-relaxed mb-3 sm:mb-4 text-center">{$t('knowego.tool_egocodeexec_desc')}</p>
             <div class="inline-flex items-center gap-2 text-green-400 font-semibold w-full justify-center text-sm sm:text-base">
               <Code class="w-3 h-3 sm:w-4 sm:h-4" />
@@ -445,7 +489,7 @@
             <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-purple-500/20 to-purple-600/10 flex items-center justify-center mx-auto mb-4 sm:mb-6 border border-purple-500/30 group-hover:scale-110 transition-all duration-300 shadow-lg shadow-purple-500/20">
               <Database class="w-6 h-6 sm:w-8 sm:h-8 text-purple-400" />
             </div>
-            <h3 class="text-lg sm:text-2xl font-bold text-text-primary mb-3 sm:mb-4 text-center">{$t('knowego.tool_egomemory_title')}</h3>
+            <h3 class="text-xl sm:text-2xl font-bold text-text-primary mb-3 sm:mb-4 text-center">{$t('knowego.tool_egomemory_title')}</h3>
             <p class="text-sm sm:text-base text-text-secondary leading-relaxed mb-3 sm:mb-4 text-center">{$t('knowego.tool_egomemory_desc')}</p>
             <div class="inline-flex items-center gap-2 text-purple-400 font-semibold w-full justify-center text-sm sm:text-base">
               <Brain class="w-3 h-3 sm:w-4 sm:h-4" />
@@ -459,7 +503,7 @@
             <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-orange-500/20 to-orange-600/10 flex items-center justify-center mx-auto mb-4 sm:mb-6 border border-orange-500/30 group-hover:scale-110 transition-all duration-300 shadow-lg shadow-orange-500/20">
               <Calculator class="w-6 h-6 sm:w-8 sm:h-8 text-orange-400" />
             </div>
-            <h3 class="text-lg sm:text-2xl font-bold text-text-primary mb-3 sm:mb-4 text-center">{$t('knowego.tool_egocalc_title')}</h3>
+            <h3 class="text-xl sm:text-2xl font-bold text-text-primary mb-3 sm:mb-4 text-center">{$t('knowego.tool_egocalc_title')}</h3>
             <p class="text-sm sm:text-base text-text-secondary leading-relaxed mb-3 sm:mb-4 text-center">{$t('knowego.tool_egocalc_desc')}</p>
             <div class="inline-flex items-center gap-2 text-orange-400 font-semibold w-full justify-center text-sm sm:text-base">
               <Calculator class="w-3 h-3 sm:w-4 sm:h-4" />
@@ -473,7 +517,7 @@
             <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-indigo-600/10 flex items-center justify-center mx-auto mb-4 sm:mb-6 border border-indigo-500/30 group-hover:scale-110 transition-all duration-300 shadow-lg shadow-indigo-500/20">
               <BookOpen class="w-6 h-6 sm:w-8 sm:h-8 text-indigo-400" />
             </div>
-            <h3 class="text-lg sm:text-2xl font-bold text-text-primary mb-3 sm:mb-4 text-center">{$t('knowego.tool_egowiki_title')}</h3>
+            <h3 class="text-xl sm:text-2xl font-bold text-text-primary mb-3 sm:mb-4 text-center">{$t('knowego.tool_egowiki_title')}</h3>
             <p class="text-sm sm:text-base text-text-secondary leading-relaxed mb-3 sm:mb-4 text-center">{$t('knowego.tool_egowiki_desc')}</p>
             <div class="inline-flex items-center gap-2 text-indigo-400 font-semibold w-full justify-center text-sm sm:text-base">
               <Book class="w-3 h-3 sm:w-4 sm:h-4" />
@@ -487,7 +531,7 @@
             <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-cyan-600/10 flex items-center justify-center mx-auto mb-4 sm:mb-6 border border-cyan-500/30 group-hover:scale-110 transition-all duration-300 shadow-lg shadow-cyan-500/20">
               <Users class="w-6 h-6 sm:w-8 sm:h-8 text-cyan-400" />
             </div>
-            <h3 class="text-lg sm:text-2xl font-bold text-text-primary mb-3 sm:mb-4 text-center">{$t('knowego.tool_alterego_title')}</h3>
+            <h3 class="text-xl sm:text-2xl font-bold text-text-primary mb-3 sm:mb-4 text-center">{$t('knowego.tool_alterego_title')}</h3>
             <p class="text-sm sm:text-base text-text-secondary leading-relaxed mb-3 sm:mb-4 text-center">{$t('knowego.tool_alterego_desc')}</p>
             <div class="inline-flex items-center gap-2 text-cyan-400 font-semibold w-full justify-center text-sm sm:text-base">
               <Shuffle class="w-3 h-3 sm:w-4 sm:h-4" />
@@ -501,7 +545,7 @@
             <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 flex items-center justify-center mx-auto mb-4 sm:mb-6 border border-emerald-500/30 group-hover:scale-110 transition-all duration-300 shadow-lg shadow-emerald-500/20">
               <Eye class="w-6 h-6 sm:w-8 sm:h-8 text-emerald-400" />
             </div>
-            <h3 class="text-lg sm:text-2xl font-bold text-text-primary mb-3 sm:mb-4 text-center">{$t('knowego.tool_visible_thinking_title')}</h3>
+            <h3 class="text-xl sm:text-2xl font-bold text-text-primary mb-3 sm:mb-4 text-center">{$t('knowego.tool_visible_thinking_title')}</h3>
             <p class="text-sm sm:text-base text-text-secondary leading-relaxed mb-3 sm:mb-4 text-center">{$t('knowego.tool_visible_thinking_desc')}</p>
             <div class="inline-flex items-center gap-2 text-emerald-400 font-semibold w-full justify-center text-sm sm:text-base">
               <Brain class="w-3 h-3 sm:w-4 sm:h-4" />
@@ -515,7 +559,7 @@
             <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-pink-500/20 to-pink-600/10 flex items-center justify-center mx-auto mb-4 sm:mb-6 border border-pink-500/30 group-hover:scale-110 transition-all duration-300 shadow-lg shadow-pink-500/20">
               <Upload class="w-6 h-6 sm:w-8 sm:h-8 text-pink-400" />
             </div>
-            <h3 class="text-lg sm:text-2xl font-bold text-text-primary mb-3 sm:mb-4 text-center">{$t('knowego.tool_multimodal_title')}</h3>
+            <h3 class="text-xl sm:text-2xl font-bold text-text-primary mb-3 sm:mb-4 text-center">{$t('knowego.tool_multimodal_title')}</h3>
             <p class="text-sm sm:text-base text-text-secondary leading-relaxed mb-3 sm:mb-4 text-center">{$t('knowego.tool_multimodal_desc')}</p>
             <div class="inline-flex items-center gap-2 text-pink-400 font-semibold w-full justify-center text-sm sm:text-base">
               <FileText class="w-3 h-3 sm:w-4 sm:h-4" />
