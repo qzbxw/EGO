@@ -1,0 +1,7 @@
+FROM node:20-alpine
+WORKDIR /app
+COPY package.json ./
+RUN npm install
+COPY . .
+RUN npm run build && mkdir -p /opt/build && cp -r build/* /opt/build/
+CMD ["sh", "-c", "mkdir -p /app/build && cp -r /opt/build/* /app/build/ && echo 'Frontend build exported to volume.'"]

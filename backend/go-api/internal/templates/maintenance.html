@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EGO - {{.Title}}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        @keyframes breath {
+            0%, 100% { transform: scale(1); opacity: 0.7; }
+            50% { transform: scale(1.05); opacity: 1; }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        @keyframes wipe-animation {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        @keyframes move-gradient {
+            0% { background-position: 0% 0%; }
+            100% { background-position: 100% 100%; }
+        }
+
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background-size: 300% 300%;
+            animation: move-gradient 20s ease-in-out infinite alternate;
+            transition: background-color 0.5s, color 0.5s;
+        }
+
+        .theme-dark {
+            background-color: #000;
+            color: #fff;
+            background-image: radial-gradient(circle at top left, #1a1a1a 0%, #000000 50%);
+        }
+
+        .theme-light {
+            background-color: #fff;
+            color: #000;
+            background-image: radial-gradient(circle at top left, #f0f0f0 0%, #ffffff 50%);
+        }
+
+        .animate-breath {
+            animation: breath 4s ease-in-out infinite;
+        }
+        .animate-pulse {
+            animation: pulse 2.5s ease-in-out infinite;
+        }
+
+        .text-wipe {
+            background-size: 200% auto;
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            animation: wipe-animation 5s ease-in-out infinite reverse;
+        }
+
+        .dark-wipe {
+            background-image: linear-gradient(110deg, white 40%, black 50%, white 60%);
+        }
+
+        .light-wipe {
+            background-image: linear-gradient(110deg, black 40%, white 50%, black 60%);
+        }
+    </style>
+</head>
+<body data-maintenance="{{.IsMaintenanceMode}}">
+
+    <!-- Переключатель тем -->
+    <div class="fixed top-4 right-4 z-20">
+        <button
+          id="theme-toggle"
+          class="px-3 py-1.5 text-sm rounded border border-current/30 hover:border-current/60 transition-colors"
+          aria-label="Toggle theme"
+        >
+        </button>
+    </div>
+  
+    <!-- Основной контент -->
+    <div class="min-h-screen flex items-center justify-center p-8 relative font-mono">
+        <div class="text-center relative z-10">
+            <!-- Логотип с анимацией "дыхания" и обработчиком ошибок -->
+            <div class="relative mb-12">
+                <img 
+                    id="logo-img"
+                    src="/static/logodark.png" 
+                    alt="EGO Logo" 
+                    class="w-24 h-24 mx-auto mb-8 animate-breath"
+                    onerror="console.error('EGO Logo failed to load:', this.src);"
+                />
+            </div>
+    
+            <!-- Заголовок с анимацией волны и стандартным жирным шрифтом -->
+            <h1 id="ego-heading" class="text-8xl md:text-9xl font-black mb-12 tracking-wider text-wipe">
+                EGO
+            </h1>
+            
+            <!-- Сообщение о статусе (с пульсацией) -->
+            <div class="relative mb-8">
+                <h2 class="text-4xl md:text-5xl font-black mb-6 leading-tight tracking-tight">
+                    SYSTEM<br/>
+                    <span id="status-text" class="animate-pulse">
+                        {{.StatusText}}
+                    </span>
+                </h2>
+                
+                <!-- Подзаголовок -->
+                {{if .Subtitle}}
+                <p class="text-lg md:text-xl font-bold opacity-70 mb-4">
+                    {{.Subtitle}}
+                </p>
+                {{end}}
+
+                <!-- Кастомное сообщение -->
+                {{if .Message}}
+                <p class="text-2xl font-black tracking-widest opacity-80 mt-8">
+                    {{.Message}}
+                </p>
+                {{end}}
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function applyTheme(theme) {
+            const body = document.body;
+            const toggleButton = document.getElementById('theme-toggle');
+            const logoImg = document.getElementById('logo-img');
+            const statusText = document.getElementById('status-text');
+            const egoHeading = document.getElementById('ego-heading');
+            const isMaintenance = body.dataset.maintenance === 'true';
+
+            if (theme === 'light') {
+                body.classList.remove('theme-dark');
+                body.classList.add('theme-light');
+                toggleButton.innerHTML = '🌙';
+                logoImg.src = '/static/logolight.png';
+                egoHeading.classList.add('light-wipe');
+                egoHeading.classList.remove('dark-wipe');
+            } else {
+                body.classList.remove('theme-light');
+                body.classList.add('theme-dark');
+                toggleButton.innerHTML = '☀️';
+                logoImg.src = '/static/logodark.png';
+                egoHeading.classList.add('dark-wipe');
+                egoHeading.classList.remove('light-wipe');
+            }
+
+            const unavailableColors = ['text-red-500', 'text-red-400'];
+            const availableColors = ['text-green-500', 'text-green-400'];
+            
+            statusText.classList.remove(...unavailableColors, ...availableColors);
+
+            if (isMaintenance) {
+                statusText.classList.add(theme === 'light' ? 'text-red-500' : 'text-red-400');
+            } else {
+                statusText.classList.add(theme === 'light' ? 'text-green-500' : 'text-green-400');
+            }
+        }
+
+        function toggleTheme() {
+            const currentIsLight = document.body.classList.contains('theme-light');
+            const newTheme = currentIsLight ? 'dark' : 'light';
+            localStorage.setItem('theme', newTheme);
+            applyTheme(newTheme);
+        }
+
+        document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+
+        // Инициализация темы при загрузке
+        const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+        applyTheme(savedTheme);
+    </script>
+
+</body>
+</html>

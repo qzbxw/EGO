@@ -1,0 +1,84 @@
+services:
+  postgres-db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - ego-network
+
+  python-api:
+    build:
+      context: ./backend/python-api
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/python-api:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+      - sandbox_tmp_data:/app/sandbox_tmp
+    environment:
+      - LOGTAIL_SOURCE_TOKEN=${LOGTAIL_SOURCE_TOKEN}
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/${POSTGRES_DB}?sslmode=disable
+    networks:
+      - ego-network
+
+  go-api:
+    image: ego-go-api-dev
+    build:
+      context: ./backend/go-api
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    working_dir: /app
+    environment:
+      - DB_PATH=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/${POSTGRES_DB}?sslmode=disable
+      - PYTHON_BACKEND_URL=http://python-api:8000
+      - SERVER_ADDR=:8080
+      - JWT_SECRET=${SECRET_KEY}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - API_ENCRYPTION_KEY=${API_ENCRYPTION_KEY}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+    env_file: .env
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend/go-api:/app
+    command: ["air", "-c", ".air.toml"]
+    depends_on:
+      - postgres-db
+      - python-api
+    networks:
+      - ego-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - go-api
+    networks:
+      - ego-network
+
+networks:
+  ego-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+    driver: local
+  sandbox_tmp_data:
+    driver: local
+    name: sandbox_tmp_data

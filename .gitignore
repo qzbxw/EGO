@@ -1,0 +1,78 @@
+.env
+*.env.local
+*.env.*.local
+
+uploads/
+
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+node_modules/
+/frontend/node_modules
+/backend/go-api/vendor
+/backend/python-api/venv
+/backend/python-api/env
+
+/frontend/build/
+/frontend/.svelte-kit/
+/frontend/dist/
+/frontend/.vercel/
+/backend/go-api/app
+/backend/go-api/go-api
+/backend/go-api/bin/
+/backend/go-api/pkg/
+
+# SvelteKit
+.svelte-kit/
+vite.config.ts.timestamp-*
+
+# Vercel
+.vercel/
+vercel.json
+
+# TypeScript
+*.tsbuildinfo
+
+# Coverage
+coverage/
+*.lcov
+
+# Temporary files
+*.tmp
+*.temp
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# System
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-data/
+postgres-data/
+
+tmp/
+.env.development
+
+# AI
+.aider
+GEMINI.*
+.gemini
+
+sandbox_tmp
+.venv
+
+monitoring/
+telemetry-go/
