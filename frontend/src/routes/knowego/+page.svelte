@@ -28,10 +28,10 @@
   let outputContent = $state("");
   let publicStats = $state({
     total_tokens: 15420000,
-    total_sessions: 89250,
+    total_sessions: 2643,
     total_requests: 1250000,
     avg_response_time_ms: 1250,
-    days_active: 127,
+    days_active: 56,
     total_files_uploaded: 125000,
     total_thinking_iterations: 2500000
   });
@@ -81,7 +81,7 @@
   }
   onMount(() => {
     mounted = true;
-    fetchPublicStats();
+    //fetchPublicStats();
     setTimeout(() => {
       heroVisible = true;
       startDemo();
@@ -199,7 +199,7 @@
           <LanguageSwitcher />
         </div>
         <button 
-          onclick={toggleTheme} 
+          on:click={toggleTheme} 
           class="group relative p-2 sm:p-3 rounded-full bg-secondary/60 backdrop-blur-sm border border-tertiary/30 hover:border-accent/50 transition-all duration-500 hover:scale-110 hover:rotate-12 touch-manipulation"
           aria-label={$t('knowego.nav_toggle_theme')}
         >
@@ -227,7 +227,7 @@
         <div class="group relative inline-block w-full sm:w-auto">
           <div class="absolute -inset-1 bg-gradient-to-r from-accent via-accent-hover to-accent rounded-2xl blur-lg opacity-50 group-hover:opacity-75 transition duration-500"></div>
           <button
-            onclick={async () => {
+            on:click={async () => {
               await withLoading(
                 async () => {
                   await new Promise(resolve => setTimeout(resolve, 1000));
@@ -297,7 +297,7 @@
       <div class="flex flex-wrap items-center justify-center gap-3 mb-8">
         {#each demoScenarios as scenario, index}
           <button
-            onclick={() => switchScenario(index)}
+            on:click={() => switchScenario(index)}
             class="group relative px-4 py-2.5 text-sm font-medium rounded-xl border transition-all duration-300 touch-manipulation {currentScenario === index ? 'bg-gradient-to-r from-accent to-accent-hover text-white border-accent shadow-lg shadow-accent/30' : 'bg-secondary/60 text-text-secondary border-tertiary/30 hover:border-accent/50 hover:bg-secondary/80'}"
           >
             <span class="relative z-10">{scenario.title}</span>
@@ -318,10 +318,10 @@
             </div>
             <span class="text-sm text-text-secondary font-mono font-semibold tracking-wide">{$t('knowego.demo_reasoning_engine')}</span>
             <div class="ml-auto flex gap-2">
-              <button onclick={restartDemo} class="group/btn p-1.5 rounded-lg bg-tertiary/30 hover:bg-tertiary/60 border border-tertiary/20 hover:border-accent/50 transition-all duration-300 touch-manipulation" title={$t('knowego.demo_restart')}>
+              <button on:click={restartDemo} class="group/btn p-1.5 rounded-lg bg-tertiary/30 hover:bg-tertiary/60 border border-tertiary/20 hover:border-accent/50 transition-all duration-300 touch-manipulation" title={$t('knowego.demo_restart')}>
                 <RotateCcw class="w-3.5 h-3.5 text-text-secondary group-hover/btn:text-accent transition-colors duration-300" />
               </button>
-              <button onclick={toggleDemo} class="group/btn p-1.5 rounded-lg bg-tertiary/30 hover:bg-tertiary/60 border border-tertiary/20 hover:border-accent/50 transition-all duration-300 touch-manipulation" title={isPlaying ? $t('knowego.demo_pause') : $t('knowego.demo_play')}>
+              <button on:click={toggleDemo} class="group/btn p-1.5 rounded-lg bg-tertiary/30 hover:bg-tertiary/60 border border-tertiary/20 hover:border-accent/50 transition-all duration-300 touch-manipulation" title={isPlaying ? $t('knowego.demo_pause') : $t('knowego.demo_play')}>
                 {#if isPlaying}
                   <Pause class="w-3.5 h-3.5 text-text-secondary group-hover/btn:text-accent transition-colors duration-300" />
                 {:else}
