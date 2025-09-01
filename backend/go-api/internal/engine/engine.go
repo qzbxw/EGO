@@ -321,9 +321,16 @@ func (p *Processor) executeToolsAndAddToHistory(thoughtData *models.ThoughtRespo
 	// Handle tool results from Python backend (tools are now executed in Python)
 	if len(thoughtData.ToolResults) > 0 {
 		log.Printf("[DEBUG] Processing %d tool results from Python backend", len(thoughtData.ToolResults))
-		callback("thought_header", map[string]string{"header": "Processing tool results..."})
+		
 		for _, result := range thoughtData.ToolResults {
-			callback(result["type"].(string), result)
+			// Handle tool progress updates with dynamic headers
+			if result["type"] == "tool_progress" {
+				if header, ok := result["header"].(string); ok {
+					callback("thought_header", map[string]string{"header": header})
+				}
+			} else {
+				callback(result["type"].(string), result)
+			}
 		}
 		*thoughtsHistory = append(*thoughtsHistory, thoughtData.ToolResults...)
 	} else if len(thoughtData.Thought.ToolCalls) > 0 {

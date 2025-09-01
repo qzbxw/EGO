@@ -123,6 +123,10 @@ function setupMessageHandler(websocket: WebSocket, handlers: WebSocketHandlers) 
 					console.log('[WebSocket] Received thought_header event:', wsEvent.data);
 					handlers.onThoughtHeader(wsEvent.data.header);
 					break;
+				case 'tool_progress':
+					console.log('[WebSocket] Received tool_progress event:', wsEvent.data);
+					handlers.onThoughtHeader(wsEvent.data.header);
+					break;
 				case 'chunk':
 					handlers.onChunk(wsEvent.data.text);
 					break;

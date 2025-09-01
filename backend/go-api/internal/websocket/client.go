@@ -45,7 +45,7 @@ func NewClient(hub *Hub, conn *websocket.Conn, user *models.User, db *database.D
 	return &Client{
 		hub:       hub,
 		conn:      conn,
-		send:      make(chan []byte, 1024), // Buffered channel to prevent blocking.
+		send:      make(chan []byte, 2048),
 		user:      user,
 		userDB:    db,
 		processor: processor,
@@ -225,9 +225,17 @@ func (c *Client) sendEvent(eventType string, data interface{}) {
 	
 	select {
 	case c.send <- jsonEvent:
-		// Message was sent successfully.
 	case <-time.After(timeout):
 		log.Printf("WARNING: WebSocket send channel full for user %d. Dropping event: %s", c.user.ID, eventType)
+		if eventType == "done" || eventType == "error" {
+			go func() {
+				select {
+				case c.send <- jsonEvent:
+				case <-time.After(finalEventTimeout):
+					log.Printf("CRITICAL: Failed to send final event %s for user %d", eventType, c.user.ID)
+				}
+			}()
+		}
 	}
 }
 

@@ -89,6 +89,15 @@ export interface WsThoughtHeaderEvent extends WsEventBase {
 		header: string;
 	};
 }
+
+export interface WsToolProgressEvent extends WsEventBase {
+	type: 'tool_progress';
+	data: {
+		tool_name: string;
+		progress: string;
+		header: string;
+	};
+}
 export interface WsChunkEvent extends WsEventBase {
 	type: 'chunk';
 	data: {
@@ -115,6 +124,7 @@ export type WsEvent =
 	| WsSessionCreatedEvent
 	| WsLogCreatedEvent
 	| WsThoughtHeaderEvent
+	| WsToolProgressEvent
 	| WsChunkEvent
 	| WsSessionTitleUpdatedEvent
 	| WsUsageUpdateEvent

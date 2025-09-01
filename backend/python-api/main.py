@@ -550,12 +550,26 @@ async def generate_thought(request: Request):
             tool_calls = thought_json.get('tool_calls', [])
             log.info(f"Executing {len(tool_calls)} tool calls from thought")
             
-            for tool_call in tool_calls:
+            for i, tool_call in enumerate(tool_calls, 1):
                 tool_name = tool_call.get('tool_name')
                 tool_query = tool_call.get('tool_query')
                 
                 if not tool_name or not tool_query:
                     continue
+                
+                # Send progress update for current tool
+                if len(tool_calls) > 1:
+                    progress_header = f"Using {tool_name}... ({i}/{len(tool_calls)})"
+                else:
+                    progress_header = f"Using {tool_name}..."
+                
+                # Add progress update to tool_results for immediate frontend feedback
+                tool_results.append({
+                    "type": "tool_progress",
+                    "tool_name": tool_name,
+                    "progress": f"{i}/{len(tool_calls)}",
+                    "header": progress_header
+                })
                     
                 try:
                     # Get the tool from ego_instance
@@ -568,6 +582,19 @@ async def generate_thought(request: Request):
                         result = await tool.use(tool_query, user_id=ego_req.user_id)
                         result = str(result)
                     
+                    # Send completion update
+                    if len(tool_calls) > 1:
+                        completion_header = f"{tool_name} completed ({i}/{len(tool_calls)})"
+                    else:
+                        completion_header = f"{tool_name} completed"
+                    
+                    tool_results.append({
+                        "type": "tool_progress",
+                        "tool_name": tool_name,
+                        "progress": f"{i}/{len(tool_calls)}",
+                        "header": completion_header
+                    })
+                    
                     tool_results.append({
                         "type": "tool_output",
                         "tool_name": tool_name,
@@ -577,6 +604,16 @@ async def generate_thought(request: Request):
                     
                 except Exception as e:
                     log.error(f"Error executing tool '{tool_name}': {e}", exc_info=True)
+                    
+                    # Send error update
+                    error_header = f"{tool_name} failed ({i}/{len(tool_calls)})"
+                    tool_results.append({
+                        "type": "tool_progress",
+                        "tool_name": tool_name,
+                        "progress": f"{i}/{len(tool_calls)}",
+                        "header": error_header
+                    })
+                    
                     tool_results.append({
                         "type": "tool_error", 
                         "tool_name": tool_name,

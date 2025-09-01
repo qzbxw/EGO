@@ -13,6 +13,8 @@ let lastUserMessage = $state<{ temp_id: number; log_id: number } | null>(null);
 let consumedText = $state<string | null>(null);
 let wasCancelled = $state<boolean>(false);
 let currentLogId = $state<number | null>(null);
+let isRecovering = $state<boolean>(false);
+let recoveredFromRest = $state<boolean>(false);
 type PersistedStreamState = {
   sessionUUID: string;
   textStream: string;
@@ -70,7 +72,11 @@ export const streamStore = {
 	set newlyCreatedSessionUUID(value) { newlyCreatedSessionUUID = value; newlyCreatedSessionUUIDStore.set(value); },
     get lastUserMessage() { return lastUserMessage; },
     get currentLogId() { return currentLogId; },
-    set currentLogId(value) { currentLogId = value; }
+    set currentLogId(value) { currentLogId = value; },
+    get isRecovering() { return isRecovering; },
+    set isRecovering(value) { isRecovering = value; },
+    get recoveredFromRest() { return recoveredFromRest; },
+    set recoveredFromRest(value) { recoveredFromRest = value; }
 };
 export function startStream(sessionUUID: string | null) {
 	thoughtHeader = '';
@@ -83,6 +89,8 @@ export function startStream(sessionUUID: string | null) {
 	streamingSessionUUID = sessionUUID;
 	newlyCreatedSessionUUID = null; 
     currentLogId = null;
+    isRecovering = false;
+    recoveredFromRest = false;
     newlyCreatedSessionUUIDStore.set(null);
 	setIsThinking(true);
     try { console.debug('[stream] startStream', { sessionUUID }); } catch {}
@@ -94,6 +102,7 @@ export function setThoughtHeader(header: string) {
     persistState();
 }
 export function appendToStream(chunk: string) {
+  if (recoveredFromRest && !isRecovering) return;
   textStream += chunk;
   textStreamStore.set(textStream);
   try { console.debug('[stream] appendToStream', { len: chunk?.length ?? 0, total: textStream.length }); } catch {}
@@ -154,6 +163,8 @@ export function resetStreamStore() {
     newlyCreatedSessionUUID = null;
     newlyCreatedSessionUUIDStore.set(null);
     currentLogId = null;
+    isRecovering = false;
+    recoveredFromRest = false;
     setIsThinking(false);
     clearPersistedState(prevUUID);
     streamingSessionUUID = null;

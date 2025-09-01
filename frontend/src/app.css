@@ -386,44 +386,6 @@
         animation: subtle-glow 4s ease-in-out infinite;
     }
 
-    .loading-bubble-animation::after {
-        @apply absolute top-0 left-0 h-full w-4/5 content-[''] pointer-events-none;
-        background: linear-gradient(90deg, 
-            transparent 0%, 
-            rgba(255, 255, 255, 0.15) 30%, 
-            rgba(255, 255, 255, 0.3) 50%, 
-            rgba(255, 255, 255, 0.15) 70%, 
-            transparent 100%
-        );
-        transform: translateX(-150%) skewX(-20deg);
-        animation: enhanced-shimmer 2.2s ease-in-out infinite;
-        opacity: 0;
-        border-radius: inherit;
-        filter: blur(0.5px);
-    }
-
-    .theme-light .loading-bubble-animation::after {
-        background: linear-gradient(90deg, 
-            transparent 0%, 
-            rgba(0, 0, 0, 0.1) 30%, 
-            rgba(0, 0, 0, 0.2) 50%, 
-            rgba(0, 0, 0, 0.1) 70%, 
-            transparent 100%
-        );
-    }
-    .loading-bubble-animation:not(.has-stream-text)::after {
-        opacity: 1;
-    }
-
-    @keyframes enhanced-shimmer {
-        0% {
-            transform: translateX(-150%) skewX(-20deg);
-        }
-        100% {
-            transform: translateX(280%) skewX(-20deg);
-        }
-    }
-
     @keyframes subtle-glow {
         0%, 100% {
             background-position: 0% 50%;
@@ -434,9 +396,6 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
-        .loading-bubble-animation::after {
-            animation: none;
-        }
         .loading-bubble-animation {
             animation: none;
         }

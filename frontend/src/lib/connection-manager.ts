@@ -41,8 +41,8 @@ const MAX_RECONNECT_ATTEMPTS_VISIBLE = 10;
 const MAX_RECONNECT_ATTEMPTS_HIDDEN = 3; 
 const RECONNECT_MAX_DELAY_MS = 10000; 
 const RECONNECT_PAUSE_WHEN_HIDDEN_MS = 30000; 
-const PING_INTERVAL_MS = 15000; 
-const PONG_TIMEOUT_MS = 12000; 
+const PING_INTERVAL_MS = 25000; 
+const PONG_TIMEOUT_MS = 28000; 
 function handlePong() {
 	if (pongTimeout) clearTimeout(pongTimeout);
 }
@@ -71,19 +71,23 @@ function ensureWatchdogRunning() {
 			if (since > STREAM_STALL_THRESHOLD_MS) {
 				console.warn(`[WS] Stream watchdog: detected stall after ${since}ms. Attempting graceful recovery...`);
 				const logId = streamStore.currentLogId;
-				if (logId) {
+				if (logId && !streamStore.isRecovering) {
+					streamStore.isRecovering = true;
 					try {
 						const resp = await api.get<{ final_response?: string }>(`/logs/${logId}`);
 						if (resp?.final_response) {
 							console.log('[WS] Watchdog recovered final response via REST API');
+							streamStore.recoveredFromRest = true;
 							appendToStream(resp.final_response);
 							endStream();
 							lastStreamActivityMs = Date.now();
+							streamStore.isRecovering = false;
 							return;
 						}
 					} catch (error) {
 						console.warn('[WS] Watchdog failed to fetch final response:', error);
 					}
+					streamStore.isRecovering = false;
 				}
 				lastStreamActivityMs = Date.now();
 			}
@@ -208,6 +212,7 @@ function connect() {
 			}
 			if (!streamStore.isDone && streamStore.currentLogId) {
 				const logId = streamStore.currentLogId;
+				streamStore.isRecovering = true;
 				let attempts = 0;
 				const MAX_POLL_ATTEMPTS = 6;
 				const poll = async () => {
@@ -215,8 +220,10 @@ function connect() {
 					try {
 						const resp = await api.get<{ final_response?: string }>(`/logs/${logId}`);
 						if (resp?.final_response) {
+							streamStore.recoveredFromRest = true;
 							appendToStream(resp.final_response);
 							endStream();
+							streamStore.isRecovering = false;
 							return;
 						}
 					} catch {}
@@ -227,6 +234,7 @@ function connect() {
 						console.warn(
 							'[WS] Final response not available after reconnect; marking stream as cancelled.'
 						);
+						streamStore.isRecovering = false;
 						stopStreamAsCancelled();
 					}
 				};
@@ -372,11 +380,12 @@ function handleVisibilityChange() {
 			reconnectToastId = undefined;
 		}
 		reconnectAttempts = 0;
+		triedRefreshThisCycle = false;
 		if (!wsStore.connection && auth.accessToken && !intentionallyClosed) {
 			if (reconnectTimeout) clearTimeout(reconnectTimeout);
 			connect();
 		}
-		if (!streamStore.isDone && streamStore.currentLogId) {
+		if (!streamStore.isDone && streamStore.currentLogId && !streamStore.isRecovering) {
 			console.log('[WS] Resuming active stream after page became visible');
 			connectionManager.triggerPollForFinalIfNeeded();
 		}
@@ -386,14 +395,18 @@ function handleVisibilityChange() {
 			toast.dismiss(reconnectToastId);
 			reconnectToastId = undefined;
 		}
+		if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS_VISIBLE) {
+			reconnectAttempts = Math.min(reconnectAttempts, MAX_RECONNECT_ATTEMPTS_HIDDEN);
+		}
 	}
 }
 export const connectionManager = {
 	connect,
 	disconnect,
 	triggerPollForFinalIfNeeded: () => {
-		if (!streamStore.isDone && streamStore.currentLogId) {
+		if (!streamStore.isDone && streamStore.currentLogId && !streamStore.isRecovering) {
 			const logId = streamStore.currentLogId;
+			streamStore.isRecovering = true;
 			let attempts = 0;
 			const MAX_POLL_ATTEMPTS = 6;
 			const poll = async () => {
@@ -401,8 +414,10 @@ export const connectionManager = {
 				try {
 					const resp = await api.get<{ final_response?: string }>(`/logs/${logId}`);
 					if (resp?.final_response) {
+						streamStore.recoveredFromRest = true;
 						appendToStream(resp.final_response);
 						endStream();
+						streamStore.isRecovering = false;
 						return;
 					}
 				} catch {}
@@ -413,6 +428,7 @@ export const connectionManager = {
 					console.warn(
 						'[WS] Final response not available after resume polling; marking stream as cancelled.'
 					);
+					streamStore.isRecovering = false;
 					stopStreamAsCancelled();
 				}
 			};
