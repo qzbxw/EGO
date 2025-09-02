@@ -162,7 +162,7 @@
 						class:bg-accent={message.author === 'user'}
 						class:text-white={message.author === 'user'}
 						class:bg-secondary={message.author === 'ego'}
-						class:loading-bubble-animation={!streamStore.isDone && message.author === 'ego' && (message.isThinking || (message.logId && streamStore.currentLogId && message.logId === streamStore.currentLogId) || (lastMessageId !== null && message.id === lastMessageId))}
+						class:loading-bubble-animation={message.author === 'ego' && (message.isThinking || (message.logId && streamStore.currentLogId && message.logId === streamStore.currentLogId) || (lastMessageId !== null && message.id === lastMessageId && !streamStore.isDone))}
 						style={message.author === 'user' ? 'max-width: min(100%, 860px); align-self: flex-end' : 'max-width: min(100%, 860px); align-self: flex-start'}
 					>
 						<MessageBody text={message.text} invert={message.author === 'user'} />

@@ -113,8 +113,12 @@ export function endStream() {
   consumedText = textStream;
   textStreamStore.set(textStream);
   try { console.debug('[stream] endStream', { hasText: !!textStream, header: thoughtHeader, currentLogId }); } catch {}
-  currentLogId = null;
-  clearPersistedState();
+  
+  // Delay clearing currentLogId to prevent bubble messages from disappearing too early
+  setTimeout(() => {
+    currentLogId = null;
+    clearPersistedState();
+  }, 500);
 }
 export function stopStreamAsCancelled() {
 	wasCancelled = true;

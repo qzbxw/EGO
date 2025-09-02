@@ -208,12 +208,13 @@
 					willSetThinking: !shouldFinalize,
 					streamIsDone: _done
 				});
-				egoChatMessages.updateMessage(sid, target.id, {
-					text: finalText,
-					isThinking: !shouldFinalize,
-					isCancelled: res.cancelled || false
-				});
 				if (shouldFinalize) {
+					// Final update - set isThinking to false
+					egoChatMessages.updateMessage(sid, target.id, {
+						text: finalText,
+						isThinking: false,
+						isCancelled: res.cancelled || false
+					});
 					const messageIndex = messages.findIndex(m => m.id === target.id);
 					if (messageIndex !== -1) {
 						messages[messageIndex] = {
@@ -224,6 +225,13 @@
 						};
 						messages = [...messages];
 					}
+				} else {
+					// Intermediate update - keep thinking
+					egoChatMessages.updateMessage(sid, target.id, {
+						text: finalText,
+						isThinking: true,
+						isCancelled: res.cancelled || false
+					});
 				}
 			} catch {}
 		}

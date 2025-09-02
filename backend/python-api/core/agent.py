@@ -384,11 +384,18 @@ class EGO:
                         markdown_thoughts = []
                         for i, thought in enumerate(thoughts_json, 1):
                             if isinstance(thought, dict):
-                                # Check for different possible field names
-                                content = thought.get('content') or thought.get('thoughts') or thought.get('text', '')
-                                header = thought.get('thoughts_header', f'Thought {i}')
-                                if content:
-                                    markdown_thoughts.append(f"## {header}\n{content}")
+                                # Handle tool outputs specifically
+                                if thought.get('type') == 'tool_output':
+                                    tool_name = thought.get('tool_name', 'Unknown Tool')
+                                    output = thought.get('output', '')
+                                    if output:
+                                        markdown_thoughts.append(f"## {tool_name} Result\n{output}")
+                                # Handle regular thoughts
+                                else:
+                                    content = thought.get('content') or thought.get('thoughts') or thought.get('text', '')
+                                    header = thought.get('thoughts_header', f'Thought {i}')
+                                    if content:
+                                        markdown_thoughts.append(f"## {header}\n{content}")
                         processed_thoughts = "\n\n".join(markdown_thoughts)
                 except (json.JSONDecodeError, KeyError) as e:
                     print(f"[DEBUG] Failed to parse thoughts_history as JSON: {e}")
@@ -556,11 +563,18 @@ class EGO:
                         markdown_thoughts = []
                         for i, thought in enumerate(thoughts_json, 1):
                             if isinstance(thought, dict):
-                                # Check for different possible field names
-                                content = thought.get('content') or thought.get('thoughts') or thought.get('text', '')
-                                header = thought.get('thoughts_header', f'Thought {i}')
-                                if content:
-                                    markdown_thoughts.append(f"## {header}\n{content}")
+                                # Handle tool outputs specifically
+                                if thought.get('type') == 'tool_output':
+                                    tool_name = thought.get('tool_name', 'Unknown Tool')
+                                    output = thought.get('output', '')
+                                    if output:
+                                        markdown_thoughts.append(f"## {tool_name} Result\n{output}")
+                                # Handle regular thoughts
+                                else:
+                                    content = thought.get('content') or thought.get('thoughts') or thought.get('text', '')
+                                    header = thought.get('thoughts_header', f'Thought {i}')
+                                    if content:
+                                        markdown_thoughts.append(f"## {header}\n{content}")
                         processed_thoughts = "\n\n".join(markdown_thoughts)
                 except (json.JSONDecodeError, KeyError) as e:
                     print(f"[DEBUG] Failed to parse thoughts_history as JSON: {e}")
