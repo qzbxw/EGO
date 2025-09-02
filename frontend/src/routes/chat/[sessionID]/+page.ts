@@ -116,7 +116,7 @@ export const load: PageLoad = async ({ params, fetch }: { params: { sessionID: s
                         author: 'ego',
                         text: hasExistingText ? streamStore.textStream : '',
                         id: egoMessageId,
-                        isThinking: !hasExistingText, 
+                        isThinking: true,
                         logId: log.id
                     });
                     if (streamStore.sessionUUID !== sessionID) {
@@ -124,12 +124,15 @@ export const load: PageLoad = async ({ params, fetch }: { params: { sessionID: s
                     }
                     setIsThinking(true);
                 } else if (hasExistingText) {
+                    // Stream has existing text but may still be ongoing — ensure thinking bubble stays visible
                     messages.push({
                         author: 'ego',
-                        text: streamStore.textStream,
+                        text: '',
                         id: egoMessageId,
+                        isThinking: true,
                         logId: log.id
                     });
+                    setIsThinking(true);
                 } else {
                 }
             }

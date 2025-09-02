@@ -194,9 +194,21 @@
 		const _text = streamStore.textStream;
 		const res = consumeStreamResult();
 		if (!res) return;
-		const sid = res.sessionUUID || getActiveSessionUUID();
+
+		let sid = res.sessionUUID || getActiveSessionUUID();
+		const storeState = egoChatMessages.get?.();
+		if (storeState && storeState.sessionUUID) {
+			sid = storeState.sessionUUID;
+		}
 		if (!sid) return;
-		const target = [...messages].reverse().find((m) => m.author === 'ego' && m.isThinking);
+
+		let target = [...messages].reverse().find((m) => m.author === 'ego' && m.isThinking) || null;
+		if (!target) {
+			const byLog = streamStore.currentLogId
+				? [...messages].reverse().find((m) => m.author === 'ego' && m.logId === streamStore.currentLogId)
+				: null;
+			target = byLog || [...messages].reverse().find((m) => m.author === 'ego') || null;
+		}
 		if (target) {
 			try {
 				const finalText = (res.text || target.text || '').trim();
@@ -208,30 +220,22 @@
 					willSetThinking: !shouldFinalize,
 					streamIsDone: _done
 				});
-				if (shouldFinalize) {
-					// Final update - set isThinking to false
-					egoChatMessages.updateMessage(sid, target.id, {
+
+				egoChatMessages.updateMessage(sid, target.id, {
+					text: finalText,
+					isThinking: !shouldFinalize,
+					isCancelled: res.cancelled || false
+				});
+
+				const messageIndex = messages.findIndex((m) => m.id === target.id);
+				if (messageIndex !== -1) {
+					messages[messageIndex] = {
+						...messages[messageIndex],
 						text: finalText,
-						isThinking: false,
+						isThinking: !shouldFinalize,
 						isCancelled: res.cancelled || false
-					});
-					const messageIndex = messages.findIndex(m => m.id === target.id);
-					if (messageIndex !== -1) {
-						messages[messageIndex] = {
-							...messages[messageIndex],
-							text: finalText,
-							isThinking: false,
-							isCancelled: res.cancelled || false
-						};
-						messages = [...messages];
-					}
-				} else {
-					// Intermediate update - keep thinking
-					egoChatMessages.updateMessage(sid, target.id, {
-						text: finalText,
-						isThinking: true,
-						isCancelled: res.cancelled || false
-					});
+					};
+					messages = [...messages];
 				}
 			} catch {}
 		}

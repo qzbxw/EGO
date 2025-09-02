@@ -240,8 +240,8 @@ function connect() {
 				};
 				setTimeout(poll, 600);
 			} else if (!streamStore.isDone && !streamStore.currentLogId) {
-				console.warn('[WS] Active stream without currentLogId on reconnect; cancelling stream.');
-				stopStreamAsCancelled();
+				console.warn('[WS] Active stream without currentLogId on reconnect; deferring cancel and attempting recovery.');
+				connectionManager.triggerPollForFinalIfNeeded();
 			}
 			const sendPing = () => {
 				if (!wsInstance || !wsStore.connection) return;

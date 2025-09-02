@@ -118,7 +118,7 @@ export function endStream() {
   setTimeout(() => {
     currentLogId = null;
     clearPersistedState();
-  }, 500);
+  }, 1500);
 }
 export function stopStreamAsCancelled() {
 	wasCancelled = true;

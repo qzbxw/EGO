@@ -79,7 +79,7 @@
 			<button class="px-3 py-1.5 rounded-lg text-sm font-semibold bg-red-600 hover:bg-red-700 text-white disabled:opacity-60" onclick={handleClearMemory} disabled={isClearing}>
 				{#if isClearing}{$_('settings.clearing')} {:else}{$_('settings.clear_memory')}{/if}
 			</button>
-			<button class="px-3 py-1.5 rounded-lg text-sm font-semibold bg-red-600/80 hover:bg-red-700 text-white" onclick={handleClearAllSessions}>
+			<button class="px-3 py-1.5 rounded-lg text-sm font-semibold bg-red-600 hover:bg-red-700 text-white" onclick={handleClearAllSessions}>
 				{$_('sidebar.delete_action')} — {$_('sidebar.delete_sessions')}
 			</button>
 		</div>
