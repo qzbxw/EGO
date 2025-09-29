@@ -104,10 +104,10 @@ class EGO:
     # Model mappings are loaded from environment variables for flexibility.
     # This allows changing the underlying models without modifying the code.
     MODEL_MAPPING = {
-        "default": os.getenv("GEMINI_DEFAULT_MODEL", "gemini-2.5-flash"),
-        "deeper": os.getenv("GEMINI_DEEPER_MODEL", "gemini-2.5-flash"),
-        "research": os.getenv("GEMINI_RESEARCH_MODEL", "gemini-2.5-flash"),
-        "agent": os.getenv("GEMINI_AGENT_MODEL", "gemini-2.5-flash"),
+        "default": os.getenv("GEMINI_DEFAULT_MODEL", "gemini-flash-latest"),
+        "deeper": os.getenv("GEMINI_DEEPER_MODEL", "gemini-flash-latest"),
+        "research": os.getenv("GEMINI_RESEARCH_MODEL", "gemini-flash-latest"),
+        "agent": os.getenv("GEMINI_AGENT_MODEL", "gemini-flash-latest"),
     }
     # Defines the maximum number of retries for LLM provider calls.
     MAX_ATTEMPTS = int(os.getenv("MAX_ATTEMPTS", 3))
