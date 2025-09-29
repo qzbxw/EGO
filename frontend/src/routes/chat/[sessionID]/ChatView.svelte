@@ -26,6 +26,7 @@
 	import { preferencesStore } from '$lib/stores/preferences.svelte.ts';
 	import { inFlightStore } from '$lib/stores/inflight.svelte.ts';
 	import { connectionManager } from '$lib/connection-manager';
+	import { compressImages, shouldCompress } from '$lib/utils/imageCompression';
 	import Modal from '$lib/components/Modal.svelte';
 	import UserSettingsModal from '$lib/components/UserSettingsModal.svelte';
 	import ChatHeader from '$lib/components/chat/ChatHeader.svelte';
@@ -251,8 +252,22 @@
 	async function sendMessage() {
 		if (sending || (!currentInput.trim() && attachedFiles.length === 0)) return;
 		sending = true;
+		
+		let tempAttachedFiles = attachedFiles;
+		try {
+			const filesToCompress = tempAttachedFiles.filter(shouldCompress);
+			const filesToKeep = tempAttachedFiles.filter(f => !shouldCompress(f));
+			
+			if (filesToCompress.length > 0) {
+				console.log(`[ChatView] Compressing ${filesToCompress.length} images...`);
+				const compressed = await compressImages(filesToCompress);
+				tempAttachedFiles = [...filesToKeep, ...compressed];
+			}
+		} catch (error) {
+			console.error('[ChatView] Image compression failed:', error);
+		}
+		
 		const tempCurrentInput = currentInput;
-		const tempAttachedFiles = attachedFiles;
 		const isNew = isNewSession;
 		const tempId = Date.now();
 		const optimisticUserMessage: ChatMessage = {

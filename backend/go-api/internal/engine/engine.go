@@ -7,11 +7,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 	"unicode/utf8"
-	"net/http"
-	"path/filepath"
 
 	"egobackend/internal/config"
 	"egobackend/internal/crypto"
@@ -19,7 +19,6 @@ import (
 	"egobackend/internal/models"
 	"egobackend/internal/storage"
 	"egobackend/internal/telemetry"
-	
 )
 
 // EventCallback is a function type for sending streaming events back to the client.
@@ -37,9 +36,9 @@ type Processor struct {
 // NewProcessor creates a new, fully initialized Processor.
 func NewProcessor(db *database.DB, cfg *config.AppConfig, s3 *storage.S3Service, client *http.Client) *Processor {
 	return &Processor{
-		db:            db,
-		cfg:           cfg,
-		s3Service:     s3,
+		db:        db,
+		cfg:       cfg,
+		s3Service: s3,
 
 		llmClient:     newLLMClient(cfg.PythonBackendURL, client),
 		fileProcessor: newFileProcessor(db, s3),
@@ -55,7 +54,7 @@ func (p *Processor) ProcessRequest(ctx context.Context, req models.StreamRequest
 		return
 	}
 	user = fullUser
-	
+
 	go p.llmClient.warmUp(context.Background())
 	stats := newRequestStats(ctx, req)
 	startTime := time.Now()
@@ -63,12 +62,14 @@ func (p *Processor) ProcessRequest(ctx context.Context, req models.StreamRequest
 	// 2. Session and Log Handling
 	session, err := p.getOrCreateSession(req, user, callback)
 	if err != nil {
-		callback("error", map[string]string{"message": err.Error()}); return
+		callback("error", map[string]string{"message": err.Error()})
+		return
 	}
 
 	logID, err := p.prepareRequestLog(req, user, session)
 	if err != nil {
-		callback("error", map[string]string{"message": err.Error()}); return
+		callback("error", map[string]string{"message": err.Error()})
+		return
 	}
 	callback("log_created", map[string]int64{"temp_id": tempID, "log_id": logID})
 
@@ -77,11 +78,12 @@ func (p *Processor) ProcessRequest(ctx context.Context, req models.StreamRequest
 	if err != nil {
 		log.Printf("[Processor] Non-fatal error during file uploads: %v", err)
 	}
-	
+
 	contextBuilder := newContextBuilder(p.db, p.s3Service)
 	llmContext, err := contextBuilder.build(ctx, user, session, logID, req.IsRegeneration, newlyAttachedIDs, req.Query)
 	if err != nil {
-		callback("error", map[string]string{"message": "Error building context: " + err.Error()}); return
+		callback("error", map[string]string{"message": "Error building context: " + err.Error()})
+		return
 	}
 
 	// 4. Agent Execution: Thinking and Synthesis
@@ -141,12 +143,12 @@ func (p *Processor) prepareRequestLog(req models.StreamRequest, user *models.Use
 	if req.RequestLogIDToRegen == 0 {
 		return 0, fmt.Errorf("invalid regeneration request: missing request_log_id_to_regen")
 	}
-	
+
 	existingLog, err := p.db.GetRequestLogByID(req.RequestLogIDToRegen, user.ID)
 	if err != nil || existingLog == nil || existingLog.SessionUUID != session.UUID {
 		return 0, fmt.Errorf("log for regeneration not found or access denied")
 	}
-	
+
 	if err := p.db.DeleteLogsAfter(session.UUID, req.RequestLogIDToRegen, user.ID); err != nil {
 		log.Printf("[Processor] Failed to trim logs after %d for session %s: %v", req.RequestLogIDToRegen, session.UUID, err)
 	}
@@ -166,7 +168,7 @@ func (p *Processor) handleFileUploads(ctx context.Context, req models.StreamRequ
 			return nil, err
 		}
 		allAttachedIDs = append(allAttachedIDs, ids...)
-		
+
 		// Approximate upload bytes from base64 payloads
 		for _, f := range req.Files {
 			if n := len(f.Base64Data); n > 0 {
@@ -187,32 +189,60 @@ func (p *Processor) handleFileUploads(ctx context.Context, req models.StreamRequ
 }
 
 func (p *Processor) runThinkingCycle(ctx context.Context, user *models.User, session *models.ChatSession, req models.StreamRequest, llmCtx *llmContext, callback EventCallback, stats *requestStats) ([]map[string]interface{}, error) {
+	thinkingCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
 	var thoughtsHistory []map[string]interface{}
 	callback("thought_header", map[string]string{"header": "Thinking..."})
 
+	consecutiveErrors := 0
+	maxConsecutiveErrors := 2
+
 	for i := 0; i < p.cfg.MaxThinkingIterations; i++ {
 		select {
-		case <-ctx.Done(): return thoughtsHistory, ctx.Err()
+		case <-thinkingCtx.Done():
+			if len(thoughtsHistory) > 0 {
+				log.Printf("[Processor] Thinking timeout after %d iterations, proceeding with partial thoughts", i)
+				callback("thought_header", map[string]string{"header": "Switching to response..."})
+				return thoughtsHistory, nil
+			}
+			return thoughtsHistory, thinkingCtx.Err()
 		default:
 		}
 
 		iterationStartTime := time.Now()
 		pythonReq := p.buildPythonRequest(user, session, req.Query, llmCtx, thoughtsHistory, false, 0)
 		// Send current request inline files (with Base64) so Python receives actual image bytes.
-		thoughtData, err := p.llmClient.generateThought(ctx, pythonReq, req.Files)
+		thoughtData, err := p.llmClient.generateThought(thinkingCtx, pythonReq, req.Files)
+
 		if err != nil {
-			return thoughtsHistory, fmt.Errorf("thought generation failed on iteration %d: %w", i+1, err)
+			consecutiveErrors++
+			log.Printf("[Processor] Thought iteration %d error: %v (consecutive: %d)", i+1, err, consecutiveErrors)
+
+			if consecutiveErrors >= maxConsecutiveErrors {
+				log.Printf("[Processor] Too many consecutive errors (%d), switching to direct response", consecutiveErrors)
+				callback("thought_header", map[string]string{"header": "Switching to direct response..."})
+				return thoughtsHistory, nil
+			}
+
+			// Retry с exponential backoff
+			backoffDelay := time.Duration(consecutiveErrors) * time.Second
+			log.Printf("[Processor] Waiting %v before retry...", backoffDelay)
+			time.Sleep(backoffDelay)
+			continue
 		}
+
+		consecutiveErrors = 0
 		stats.thoughtDurations = append(stats.thoughtDurations, time.Since(iterationStartTime).Milliseconds())
 
 		// Process the thought first (add to history, send header)
 		p.processThoughtOnly(thoughtData, &thoughtsHistory, callback, stats)
-		
+
 		// If tools are needed, pause thinking and execute them
 		if len(thoughtData.ToolResults) > 0 || len(thoughtData.Thought.ToolCalls) > 0 {
 			p.executeToolsAndAddToHistory(thoughtData, &thoughtsHistory, callback, pythonReq.MemoryEnabled, user.ID)
 		}
-		
+
 		if !thoughtData.Thought.NextThoughtNeeded {
 			break
 		}
@@ -221,15 +251,15 @@ func (p *Processor) runThinkingCycle(ctx context.Context, user *models.User, ses
 }
 
 func (p *Processor) synthesizeFinalResponse(ctx context.Context, user *models.User, session *models.ChatSession, req models.StreamRequest, llmCtx *llmContext, thoughtsHistory []map[string]interface{}, callback EventCallback, logID int64, stats *requestStats) (string, error) {
-    callback("thought_header", map[string]string{"header": "Synthesizing response..."})
-    pythonReq := p.buildPythonRequest(user, session, req.Query, llmCtx, thoughtsHistory, true, logID)
-    
+	callback("thought_header", map[string]string{"header": "Synthesizing response..."})
+	pythonReq := p.buildPythonRequest(user, session, req.Query, llmCtx, thoughtsHistory, true, logID)
+
 	if req.IsRegeneration {
 		pythonReq.RegeneratedLogID = logID
 	}
-    
-    // Pass current request inline files (with Base64) for synthesis stream as well.
-    return p.llmClient.synthesizeStream(ctx, pythonReq, req.Files, callback)
+
+	// Pass current request inline files (with Base64) for synthesis stream as well.
+	return p.llmClient.synthesizeStream(ctx, pythonReq, req.Files, callback)
 }
 
 func (p *Processor) finalize(logID int64, session *models.ChatSession, user *models.User, query, finalResponse string, thoughtsHistory []map[string]interface{}, newlyAttachedIDs []int64, stats *requestStats, startTime time.Time, thinkingDur, synthDur time.Duration, processErr error, callback EventCallback) {
@@ -239,8 +269,9 @@ func (p *Processor) finalize(logID int64, session *models.ChatSession, user *mod
 		}
 	} else {
 		p.finalizeLog(logID, thoughtsHistory, finalResponse, newlyAttachedIDs)
-		go p.triggerVectorization(logID, query, finalResponse, newlyAttachedIDs)
 		callback("done", "Processing complete.")
+		// Отложенная векторизация - выполняется ПОСЛЕ отправки ответа пользователю
+		go p.triggerVectorization(logID, query, finalResponse, newlyAttachedIDs)
 	}
 
 	metrics := stats.buildMetrics(user, session.UUID, logID, startTime, thinkingDur, synthDur)
@@ -259,7 +290,7 @@ func (p *Processor) finalize(logID int64, session *models.ChatSession, user *mod
 func (p *Processor) finalizeLog(logID int64, thoughtsHistory []map[string]interface{}, finalResponse string, newlyAttachedIDs []int64) {
 	thoughtsJSON, _ := json.Marshal(thoughtsHistory)
 	filesJSON, _ := json.Marshal(newlyAttachedIDs)
-	
+
 	// Token counts are now collected in the stats object, but we are not passing them here.
 	// This can be updated if the DB schema needs it.
 	err := p.db.UpdateLogWithFinalResponse(logID, string(thoughtsJSON), finalResponse, string(filesJSON), 0, 0, 0)
@@ -275,12 +306,17 @@ func (p *Processor) finalizeLog(logID int64, thoughtsHistory []map[string]interf
 }
 
 func (p *Processor) triggerVectorization(logID int64, query, finalResponse string, fileIDs []int64) {
+	// Векторизация файлов и сообщений выполняется в фоне, не блокируя ответ пользователю
+	// Увеличен таймаут для больших файлов
 	if len(fileIDs) > 0 {
 		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute) // Увеличен с 5 до 10 минут
 			defer cancel()
+			log.Printf("[VECTORS] Starting vectorization of %d files for log %d", len(fileIDs), logID)
 			if err := p.fileProcessor.vectorizeFiles(ctx, fileIDs); err != nil {
 				log.Printf("[VECTORS] Error vectorizing files for log %d: %v", logID, err)
+			} else {
+				log.Printf("[VECTORS] Successfully vectorized %d files for log %d", len(fileIDs), logID)
 			}
 		}()
 	}
@@ -289,6 +325,8 @@ func (p *Processor) triggerVectorization(logID int64, query, finalResponse strin
 		combinedText := fmt.Sprintf("User: %s\nEGO: %s", query, finalResponse)
 		if err := p.fileProcessor.vectorizeAndSaveMessage(logID, combinedText); err != nil {
 			log.Printf("[VECTORS] Error vectorizing message for log %d: %v", logID, err)
+		} else {
+			log.Printf("[VECTORS] Successfully vectorized message for log %d", logID)
 		}
 	}()
 }
@@ -299,11 +337,11 @@ func (p *Processor) processThoughtOnly(thoughtData *models.ThoughtResponseWithDa
 	if thoughtData.Usage != nil {
 		callback("usage_update", thoughtData.Usage)
 	}
-	
+
 	thought := thoughtData.Thought
 	log.Printf("[DEBUG] processThoughtOnly - ThoughtHeader: '%s'", thought.ThoughtHeader)
 	log.Printf("[DEBUG] processThoughtOnly - Thoughts: '%s'", thought.Thoughts[:min(100, len(thought.Thoughts))])
-	
+
 	*thoughtsHistory = append(*thoughtsHistory, map[string]interface{}{
 		"type": "thought", "content": thought.Thoughts,
 	})
@@ -321,7 +359,7 @@ func (p *Processor) executeToolsAndAddToHistory(thoughtData *models.ThoughtRespo
 	// Handle tool results from Python backend (tools are now executed in Python)
 	if len(thoughtData.ToolResults) > 0 {
 		log.Printf("[DEBUG] Processing %d tool results from Python backend", len(thoughtData.ToolResults))
-		
+
 		for _, result := range thoughtData.ToolResults {
 			// Handle tool progress updates with dynamic headers
 			if result["type"] == "tool_progress" {
@@ -414,7 +452,7 @@ func createInitialSessionTitle(req models.StreamRequest) string {
 		}
 		title = strings.Join(names, ", ")
 	}
-	
+
 	if title == "" {
 		return "New Chat"
 	}

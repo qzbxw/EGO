@@ -7,21 +7,24 @@
 	import { createEventDispatcher } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { _ } from 'svelte-i18n';
+	
 	const dispatch = createEventDispatcher();
 	let { author, text, isLastMessage, isThinking, isCancelled, streamIsDone, logId, lastMessageLogId } = $props();
-	$effect(() => {
-		if (author === 'ego') {
-			console.log('[MessageActions] EGO message conditions:', {
-				author,
-				isLastMessage,
-				isThinking,
-				isCancelled,
-				logId,
-				streamIsDone,
-				shouldShowRegen: author === 'ego' && isLastMessage && !isThinking && !isCancelled && logId
-			});
-		}
-	});
+	
+	const canRegenerate = $derived(
+		isLastMessage && 
+		!isThinking && 
+		!isCancelled && 
+		!!logId && 
+		streamIsDone
+	);
+	
+	const canEdit = $derived(
+		author === 'user' && 
+		!!logId && 
+		streamIsDone
+	);
+	
 	function copyToClipboard(str: string) {
 		navigator.clipboard
 			.writeText(str)
@@ -30,37 +33,25 @@
 	}
 </script>
 <div class="flex items-center gap-2 text-gray-400">
-	{#if author === 'ego' && isLastMessage && !isThinking && !isCancelled && logId}
+	{#if canRegenerate}
 		<button
 			onclick={() => dispatch('regenerate')}
 			class="p-1 hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-			disabled={!streamIsDone}
 			title={$_('chat.regenerate')}
 		>
 			<RefreshCw size={16} />
 		</button>
 	{/if}
-	{#if author === 'user' && isLastMessage && logId}
+	{#if canEdit}
 		<button
-			onclick={() => dispatch('regenerate')}
+			type="button"
+			onclick={(e) => { e.stopPropagation(); dispatch('edit'); }}
 			class="p-1 hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-			disabled={!streamIsDone}
-			title={$_('chat.regenerate')}
+			title={$_('chat.edit_and_regenerate')}
 		>
-			<RefreshCw size={16} />
+			<Pencil size={16} />
 		</button>
 	{/if}
-	{#if author === 'user' && logId}
-        <button
-            type="button"
-            onclick={(e) => { e.stopPropagation(); dispatch('edit'); }}
-            class="p-1 hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={!streamIsDone}
-            title={$_('chat.edit_and_regenerate')}
-        >
-            <Pencil size={16} />
-        </button>
-    {/if}
 	<button onclick={() => copyToClipboard(text)} class="p-1 hover:text-gray-200" title={$_('chat.copy')}>
 		<Copy size={16} />
 	</button>

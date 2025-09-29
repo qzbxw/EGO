@@ -14,54 +14,84 @@ const PY_TARGET: string = ENV.VITE_DEV_PY_TARGET || 'http://python-api:8000';
 export default defineConfig({
     plugins: [sveltekit()],
     
-        server: {
-            host: true,
-            port: 5173,
-            strictPort: true,
-            hmr: {
-                protocol: 'ws',
-                host: 'localhost',
-                clientPort: 5173
-            },
-            proxy: {
-                // Go backend (generic API prefix used by app code)
-                '/api': {
-                    target: BACKEND_TARGET,
-                    changeOrigin: true,
-                    secure: false,
-                    ws: true
-                },
-                // Direct auth endpoints; use trailing slash to avoid matching '/authenticating'
-                '/auth/': {
-                    target: BACKEND_TARGET,
-                    changeOrigin: true,
-                    secure: false
-                },
-                '/me': {
-                    target: BACKEND_TARGET,
-                    changeOrigin: true,
-                    secure: false
-                },
-                '/sessions': {
-                    target: BACKEND_TARGET,
-                    changeOrigin: true,
-                    secure: false
-                },
-                // WebSocket passthrough to Go backend if needed
-                '/api/ws': {
-                    target: BACKEND_WS_TARGET,
-                    ws: true,
-                    changeOrigin: true,
-                    secure: false
-                },
-                // Python backend helpers
-                '/py': {
-                    target: PY_TARGET,
-                    changeOrigin: true,
-                    secure: false,
-                    ws: false,
-                    rewrite: (path: string) => path.replace(/^\/py/, '')
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks: (id) => {
+                    if (id.includes('node_modules')) {
+                        if (id.includes('marked') || id.includes('highlight.js') || id.includes('katex')) {
+                            return 'markdown';
+                        }
+                        if (id.includes('@lucide') || id.includes('svelte-sonner')) {
+                            return 'ui';
+                        }
+                        if (id.includes('svelte-i18n')) {
+                            return 'i18n';
+                        }
+                        return 'vendor';
+                    }
                 }
             }
+        },
+        target: 'es2020',
+        minify: 'esbuild',
+        cssMinify: true,
+        chunkSizeWarningLimit: 600,
+        sourcemap: false
+    },
+    
+    optimizeDeps: {
+        include: ['marked', 'highlight.js', 'katex', '@lucide/svelte']
+    },
+    
+    server: {
+        host: true,
+        port: 5173,
+        strictPort: true,
+        hmr: {
+            protocol: 'ws',
+            host: 'localhost',
+            clientPort: 5173
+        },
+        proxy: {
+            // Go backend (generic API prefix used by app code)
+            '/api': {
+                target: BACKEND_TARGET,
+                changeOrigin: true,
+                secure: false,
+                ws: true
+            },
+            // Direct auth endpoints; use trailing slash to avoid matching '/authenticating'
+            '/auth/': {
+                target: BACKEND_TARGET,
+                changeOrigin: true,
+                secure: false
+            },
+            '/me': {
+                target: BACKEND_TARGET,
+                changeOrigin: true,
+                secure: false
+            },
+            '/sessions': {
+                target: BACKEND_TARGET,
+                changeOrigin: true,
+                secure: false
+            },
+            // WebSocket passthrough to Go backend if needed
+            '/api/ws': {
+                target: BACKEND_WS_TARGET,
+                ws: true,
+                changeOrigin: true,
+                secure: false
+            },
+            // Python backend helpers
+            '/py': {
+                target: PY_TARGET,
+                changeOrigin: true,
+                secure: false,
+                ws: false,
+                rewrite: (path: string) => path.replace(/^\/py/, '')
+            }
         }
+    }
 });

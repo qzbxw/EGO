@@ -101,27 +101,40 @@ function scheduleReconnect() {
 	}
 	const maxAttempts = isPageVisible ? MAX_RECONNECT_ATTEMPTS_VISIBLE : MAX_RECONNECT_ATTEMPTS_HIDDEN;
 	if (reconnectAttempts >= maxAttempts) {
-		console.log(`[WS] Max reconnect attempts reached (${maxAttempts}). Stopping reconnection.`);
+		console.log(`[WS] Max reconnect attempts reached (${maxAttempts}). Activating circuit breaker.`);
 		if (reconnectToastId) {
 			toast.dismiss(reconnectToastId);
 			reconnectToastId = undefined;
 		}
-		if (!isPageVisible) {
-			setTimeout(() => {
-				reconnectAttempts = 0;
-				if (!wsStore.connection && auth.accessToken && !intentionallyClosed) {
-					scheduleReconnect();
-				}
-			}, RECONNECT_PAUSE_WHEN_HIDDEN_MS);
-		}
+		
+		const circuitBreakerDelay = !isPageVisible 
+			? RECONNECT_PAUSE_WHEN_HIDDEN_MS
+			: Math.min(
+				Math.pow(2, reconnectAttempts - maxAttempts) * 30000,
+				300000
+			);
+		
+		console.log(`[WS] Circuit breaker activated. Waiting ${circuitBreakerDelay / 1000}s before retry.`);
+		
+		setTimeout(() => {
+			reconnectAttempts = 0;
+			if (!wsStore.connection && auth.accessToken && !intentionallyClosed) {
+				console.log('[WS] Circuit breaker expired. Resetting reconnection attempts.');
+				scheduleReconnect();
+			}
+		}, circuitBreakerDelay);
 		return;
 	}
-	const delay = Math.min(Math.pow(1.8, reconnectAttempts) * 1000, RECONNECT_MAX_DELAY_MS);
+	
+	const baseDelay = Math.pow(1.8, reconnectAttempts) * 1000;
+	const jitter = Math.random() * 1000;
+	const delay = Math.min(baseDelay + jitter, RECONNECT_MAX_DELAY_MS);
+	
 	reconnectAttempts++;
 	console.log(
 		`[WS] Connection lost. Reconnecting in ${Math.round(delay / 100) / 10}s... (attempt ${
 			reconnectAttempts
-		}/${maxAttempts})`
+		}/${maxAttempts}) [jitter: ${Math.round(jitter)}ms]`
 	);
 	if (isChatRoute() && isPageVisible && !suppressReconnectToastsUntilOpen) {
 		const message = get(_)('toasts.ws_reconnect_attempt', {

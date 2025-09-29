@@ -23,15 +23,29 @@ const (
 	pongWait          = 30 * time.Second    // Time allowed to read the next pong message from the peer.
 	pingPeriod        = (pongWait * 9) / 10 // Send pings to peer with this period. Must be less than pongWait.
 	maxMessageSize    = 64 * 1024 * 1024  // Maximum message size allowed from peer.
-	sendEventTimeout  = 2 * time.Second     // Timeout for sending regular events.
-	finalEventTimeout = 10 * time.Second    // A longer timeout for final events like 'done' or 'error'.
+	sendEventTimeout  = 5 * time.Second     // Timeout for sending regular events (увеличено с 2 до 5).
+	finalEventTimeout = 15 * time.Second    // A longer timeout for final events like 'done' or 'error' (увеличено).
 )
+
+// Message priority levels for queuing
+const (
+	PriorityCritical = 0 // done, error, log_created
+	PriorityHigh     = 1 // chunk, session_created
+	PriorityMedium   = 2 // thought_header
+	PriorityLow      = 3 // tool_progress, pong
+)
+
+// priorityMessage wraps a message with its priority for queuing
+type priorityMessage struct {
+	data     []byte
+	priority int
+}
 
 // Client is a middleman between the websocket connection and the hub.
 type Client struct {
 	hub       *Hub
 	conn      *websocket.Conn
-	send      chan []byte
+	send      chan priorityMessage // Изменено на priorityMessage для приоритетной очереди
 	user      *models.User
 	processor *engine.Processor
 	userDB    *database.DB
@@ -45,7 +59,7 @@ func NewClient(hub *Hub, conn *websocket.Conn, user *models.User, db *database.D
 	return &Client{
 		hub:       hub,
 		conn:      conn,
-		send:      make(chan []byte, 2048),
+		send:      make(chan priorityMessage, 4096), // Увеличен буфер и изменен тип
 		user:      user,
 		userDB:    db,
 		processor: processor,
@@ -94,7 +108,7 @@ func (c *Client) WritePump() {
 				c.write(websocket.CloseMessage, []byte{})
 				return
 			}
-			if err := c.write(websocket.TextMessage, message); err != nil {
+			if err := c.write(websocket.TextMessage, message.data); err != nil {
 				log.Printf("Error writing message to websocket for user %d: %v", c.user.ID, err)
 				return
 			}
@@ -201,9 +215,25 @@ func (c *Client) processStreamRequest(message []byte) {
 	c.processor.ProcessRequest(ctx, req, c.user, req.TempID, callback)
 }
 
+// getMessagePriority returns the priority level for a given event type.
+func getMessagePriority(eventType string) int {
+	switch eventType {
+	case "done", "error", "log_created":
+		return PriorityCritical
+	case "chunk", "session_created", "session_title_updated":
+		return PriorityHigh
+	case "thought_header":
+		return PriorityMedium
+	case "tool_progress", "pong", "usage_update", "tool_call", "tool_output", "tool_error":
+		return PriorityLow
+	default:
+		return PriorityMedium // Default to medium priority
+	}
+}
+
 // sendEvent marshals and sends an event to the client's send channel.
-// It uses a non-blocking send with a timeout to prevent a slow client
-// from blocking the entire system.
+// It uses a priority-based non-blocking send with a timeout to prevent a slow client
+// from blocking the entire system. Critical messages are guaranteed delivery.
 func (c *Client) sendEvent(eventType string, data interface{}) {
 	eventData := map[string]interface{}{"type": eventType, "data": data}
 	
@@ -218,23 +248,45 @@ func (c *Client) sendEvent(eventType string, data interface{}) {
 		return
 	}
 
+	priority := getMessagePriority(eventType)
+	msg := priorityMessage{
+		data:     jsonEvent,
+		priority: priority,
+	}
+
 	timeout := sendEventTimeout
-	if eventType == "done" || eventType == "error" {
+	if priority <= PriorityCritical {
 		timeout = finalEventTimeout
 	}
 	
-	select {
-	case c.send <- jsonEvent:
-	case <-time.After(timeout):
-		log.Printf("WARNING: WebSocket send channel full for user %d. Dropping event: %s", c.user.ID, eventType)
-		if eventType == "done" || eventType == "error" {
+	// For critical messages, block and wait for delivery
+	if priority == PriorityCritical {
+		select {
+		case c.send <- msg:
+			return
+		case <-time.After(timeout):
+			log.Printf("CRITICAL: Failed to send critical event %s for user %d after %v", eventType, c.user.ID, timeout)
+			// Try one more time in a goroutine to not block caller
 			go func() {
 				select {
-				case c.send <- jsonEvent:
-				case <-time.After(finalEventTimeout):
-					log.Printf("CRITICAL: Failed to send final event %s for user %d", eventType, c.user.ID)
+				case c.send <- msg:
+					log.Printf("CRITICAL: Delayed delivery of %s succeeded for user %d", eventType, c.user.ID)
+				case <-time.After(timeout):
+					log.Printf("CRITICAL: Delayed delivery of %s failed for user %d", eventType, c.user.ID)
 				}
 			}()
+		}
+		return
+	}
+	
+	// For non-critical messages, try non-blocking send
+	select {
+	case c.send <- msg:
+		// Successfully sent
+	case <-time.After(timeout):
+		// Only log warning for high priority messages
+		if priority <= PriorityHigh {
+			log.Printf("WARNING: WebSocket send channel full for user %d. Dropping %s event (priority %d)", c.user.ID, eventType, priority)
 		}
 	}
 }

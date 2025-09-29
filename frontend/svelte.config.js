@@ -8,7 +8,25 @@ const config = {
 	},
 	preprocess: vitePreprocess(),
 	kit: {
-		adapter: adapter()
+		adapter: adapter({
+			runtime: 'nodejs22.x',
+			split: true,
+			isr: {
+				expiration: false 
+			}
+		}),
+		prerender: {
+			entries: [
+				'/login',
+				'/register',
+				'/terms',
+				'/privacy',
+				'/'
+			],
+			crawl: true,
+			handleHttpError: 'warn'
+		},
+		inlineStyleThreshold: 2048
 	}
 };
 

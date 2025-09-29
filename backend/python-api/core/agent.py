@@ -371,8 +371,8 @@ class EGO:
             except Exception as e:
                 logging.warning(f"Failed to inject memory context: {e}")
 
-        # --- Prepare prompt components
-        wrapped_chat = self._wrap_block("CHAT HISTORY", chat_history)
+        if chat_history and not chat_history.strip().startswith('[BEGIN'):
+            chat_history = chat_history.strip()
         
         # --- Process thoughts_history: convert to simple text format
         processed_thoughts = ""
@@ -398,31 +398,22 @@ class EGO:
                                         markdown_thoughts.append(f"## {header}\n{content}")
                         processed_thoughts = "\n\n".join(markdown_thoughts)
                 except (json.JSONDecodeError, KeyError) as e:
-                    print(f"[DEBUG] Failed to parse thoughts_history as JSON: {e}")
+                    logging.debug(f"Failed to parse thoughts_history as JSON: {e}")
                     processed_thoughts = thoughts_history
             else:
                 processed_thoughts = thoughts_history
         
-        # DEBUG: Log content
-        print(f"[DEBUG] wrapped_chat length: {len(wrapped_chat)}")
-        print(f"[DEBUG] wrapped_chat content: {wrapped_chat[:300]}...")
-        print(f"[DEBUG] processed_thoughts length: {len(processed_thoughts)}")
-        print(f"[DEBUG] processed_thoughts content: {processed_thoughts[:500]}...")
+        logging.debug(f"chat_history length: {len(chat_history)}, processed_thoughts length: {len(processed_thoughts)}")
         
-        # Build the full prompt as content instead of system instruction
         full_prompt = mode_config.thinking_prompt.format(
             custom_instructions=custom_instructions or "None.",
-            chat_history=wrapped_chat,
+            chat_history=chat_history,
             thoughts_history=processed_thoughts,
             user_query=query,
         )
         
-        # Add memory context to the prompt if available
         if memory_context:
-            full_prompt = f"{memory_context}\n\n{full_prompt}"
-        
-        print(f"[DEBUG] full_prompt length: {len(full_prompt)}")
-        print(f"[DEBUG] full_prompt preview: {full_prompt[:500]}...")
+            full_prompt = f"[RELEVANT PAST CONTEXT]\n{memory_context}\n[END CONTEXT]\n\n{full_prompt}"
         
         # Put everything in prompt_parts for better model understanding
         prompt_parts = list(image_parts or []) + [full_prompt]
@@ -545,13 +536,13 @@ class EGO:
                     current_log_id=current_log_id
                 )
                 if memory_texts:
-                    memory_context = self._wrap_block("RELEVANT MEMORY", "\n".join(memory_texts))
+                    memory_context = "\n".join(memory_texts)  # НЕ оборачиваем здесь
                     logging.info(f"Injected {len(memory_texts)} memory contexts for synthesis for user '{user_id}'")
             except Exception as e:
                 logging.warning(f"Failed to inject memory context for synthesis: {e}")
 
-        # --- Prepare prompt components
-        wrapped_chat = self._wrap_block("CHAT HISTORY", chat_history)
+        if chat_history and not chat_history.strip().startswith('[BEGIN'):
+            chat_history = chat_history.strip()
         
         # --- Process thoughts_history: convert to simple text format
         processed_thoughts = ""
@@ -582,17 +573,15 @@ class EGO:
             else:
                 processed_thoughts = thoughts_history
 
-        # Build the full prompt as content instead of system instruction
         full_prompt = mode_config.synthesis_prompt.format(
             custom_instructions=custom_instructions or "None.",
-            chat_history=wrapped_chat,
+            chat_history=chat_history,
             thoughts_history=processed_thoughts,
             user_query=query,
         )
         
-        # Add memory context to the prompt if available
         if memory_context:
-            full_prompt = f"{memory_context}\n\n{full_prompt}"
+            full_prompt = f"[RELEVANT PAST CONTEXT]\n{memory_context}\n[END CONTEXT]\n\n{full_prompt}"
 
         # Put everything in prompt_parts for better model understanding
         prompt_parts = list(prompt_parts_from_files or []) + [full_prompt]
