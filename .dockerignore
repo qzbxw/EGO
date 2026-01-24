@@ -1,0 +1,17 @@
+.git
+.gitignore
+node_modules
+frontend/node_modules
+backend/go-api/vendor
+backend/python-api/venv
+backend/python-api/__pycache__
+build
+frontend/build
+frontend/.svelte-kit
+docker-data
+postgres-data
+*.log
+*.png
+*.sql
+tmp
+.env*

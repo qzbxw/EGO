@@ -1,0 +1,31 @@
+# Base stage
+FROM node:20-alpine AS base
+WORKDIR /app
+COPY package.json package-lock.json ./
+
+# Production dependencies stage
+FROM base AS prod-deps
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --omit=dev
+
+# Build stage
+FROM base AS builder
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
+COPY . .
+# Increase memory for the build process specifically
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+RUN npm run build
+
+# Runner stage
+FROM node:20-alpine AS runner
+WORKDIR /app
+COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=builder /app/build ./build
+COPY package.json ./
+
+ENV NODE_ENV=production
+ENV HOST=0.0.0.0
+ENV PORT=3000
+EXPOSE 3000
+CMD ["node", "build"]

@@ -1,0 +1,24 @@
+FROM python:3.11-slim
+
+# Install system dependencies if needed (e.g., for some python libs)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install common libraries for data science and agent tasks
+RUN pip install --no-cache-dir \
+    numpy \
+    pandas \
+    matplotlib \
+    scipy \
+    requests \
+    beautifulsoup4 \
+    scikit-learn \
+    sympy \
+    pillow \
+    yfinance \
+    openai \
+    anthropic
+
+WORKDIR /sandbox
+

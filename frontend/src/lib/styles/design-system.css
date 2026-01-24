@@ -1,0 +1,237 @@
+/* Design System - Simplified and Clean */
+:root {
+	/* Typography */
+	--font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+	--font-mono: 'SF Mono', 'Roboto Mono', 'Fira Code', monospace;
+
+	/* Spacing */
+	--space-1: 0.25rem;
+	--space-2: 0.5rem;
+	--space-3: 0.75rem;
+	--space-4: 1rem;
+	--space-6: 1.5rem;
+	--space-8: 2rem;
+	--space-12: 3rem;
+	--space-16: 4rem;
+
+	/* Border Radius */
+	--radius-sm: 0.25rem;
+	--radius-md: 0.5rem;
+	--radius-lg: 1rem;
+	--radius-xl: 1.5rem;
+
+	/* Shadows */
+	--shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+	--shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+	--shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+	--shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+
+	/* Transitions */
+	--transition: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+	--transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+
+	/* Z-index */
+	--z-0: 0;
+	--z-10: 10;
+	--z-20: 20;
+	--z-30: 30;
+	--z-40: 40;
+	--z-50: 50;
+}
+
+/* Base styles */
+html {
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	text-rendering: optimizeLegibility;
+	scroll-behavior: smooth;
+}
+
+body {
+	font-family: var(--font-sans);
+	line-height: 1.5;
+	color: var(--color-text-primary);
+	background-color: var(--color-bg);
+}
+
+/* Typography */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+	font-weight: 700;
+	line-height: 1.2;
+	letter-spacing: -0.02em;
+	margin-bottom: var(--space-4);
+}
+
+h1 {
+	font-size: 2.5rem;
+}
+h2 {
+	font-size: 2rem;
+}
+h3 {
+	font-size: 1.5rem;
+}
+h4 {
+	font-size: 1.25rem;
+}
+
+p {
+	margin-bottom: var(--space-4);
+	max-width: 65ch;
+}
+
+/* Buttons */
+.button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--space-2);
+	padding: var(--space-3) var(--space-6);
+	border-radius: var(--radius-md);
+	font-weight: 500;
+	transition: all var(--transition);
+	cursor: pointer;
+	border: 1px solid transparent;
+}
+
+.button--primary {
+	background-color: var(--color-accent);
+	color: white;
+}
+
+.button--primary:hover {
+	background-color: var(--color-accent-hover);
+	transform: translateY(-1px);
+	box-shadow: var(--shadow-md);
+}
+
+.button--secondary {
+	background-color: transparent;
+	border-color: var(--color-border);
+	color: var(--color-text-primary);
+}
+
+.button--secondary:hover {
+	background-color: var(--color-bg-hover);
+	border-color: var(--color-border-hover);
+}
+
+/* Cards */
+.card {
+	background: var(--color-bg-card);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-lg);
+	padding: var(--space-6);
+	transition:
+		transform var(--transition),
+		box-shadow var(--transition);
+}
+
+.card:hover {
+	transform: translateY(-2px);
+	box-shadow: var(--shadow-md);
+}
+
+/* Animations */
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.animate-fade-in {
+	animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* Layout */
+.container {
+	width: 100%;
+	margin: 0 auto;
+	padding: 0 var(--space-4);
+	max-width: 1200px;
+}
+
+.section {
+	padding: var(--space-16) 0;
+}
+
+/* Navigation */
+.nav {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	z-index: var(--z-50);
+	backdrop-filter: blur(8px);
+	background-color: rgba(var(--color-bg-rgb), 0.8);
+	border-bottom: 1px solid var(--color-border);
+	padding: var(--space-3) 0;
+}
+
+/* Hero section */
+.hero {
+	min-height: 100vh;
+	display: flex;
+	align-items: center;
+	padding: calc(var(--space-16) + 1rem) 0 var(--space-16);
+	position: relative;
+	overflow: hidden;
+}
+
+.hero::before {
+	content: '';
+	position: absolute;
+	top: -50%;
+	left: -50%;
+	right: -50%;
+	bottom: -50%;
+	background: radial-gradient(circle at center, var(--color-accent-a10) 0%, transparent 70%);
+	opacity: 0.3;
+	pointer-events: none;
+	z-index: -1;
+}
+
+/* Features grid */
+.features-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+	gap: var(--space-8);
+	margin-top: var(--space-12);
+}
+
+/* Responsive adjustments */
+@media (min-width: 640px) {
+	h1 {
+		font-size: 3rem;
+	}
+	h2 {
+		font-size: 2.5rem;
+	}
+
+	.container {
+		padding: 0 var(--space-8);
+	}
+}
+
+@media (min-width: 1024px) {
+	h1 {
+		font-size: 3.5rem;
+	}
+	h2 {
+		font-size: 2.75rem;
+	}
+
+	.features-grid {
+		grid-template-columns: repeat(3, 1fr);
+	}
+}

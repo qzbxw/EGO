@@ -1,0 +1,12 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.venv
+venv
+ENV
+.env
+Dockerfile.dev
+Dockerfile.prod
+Dockerfile.sandbox
+sandbox_tmp
