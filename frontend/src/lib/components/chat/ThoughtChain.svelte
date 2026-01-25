@@ -178,35 +178,83 @@
                 transition:slide={{ duration: 400, easing: quartOut }} 
                 class="mt-4 flex flex-col gap-0 border-l-[1.5px] border-white/5 ml-5 pl-6 py-2"
             >
-                <!-- Active Mission Plan (Persistent State) -->
+                <!-- Active Execution Plan -->
                 {#if activePlan}
-                    <div 
+                    {@const completedSteps = activePlan.steps.filter(s => s.status === 'completed').length}
+                    {@const totalSteps = activePlan.steps.length}
+                    {@const progressPercent = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0}
+
+                    <div
                         in:fade={{ duration: 300 }}
-                        class="mb-6 bg-accent/5 border border-accent/10 rounded-2xl p-4 overflow-hidden shadow-inner"
+                        class="mb-6 bg-gradient-to-br from-accent/[0.03] to-accent/[0.08] border border-accent/15 rounded-xl p-5 overflow-hidden backdrop-blur-sm"
                     >
-                        <div class="flex items-center gap-3 mb-4">
-                            <div class="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/20 text-accent">
-                                <ClipboardList size={14} />
+                        <!-- Plan Header with Progress -->
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex items-center gap-3">
+                                <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/15 text-accent border border-accent/20">
+                                    <ClipboardList size={16} strokeWidth={2.5} />
+                                </div>
+                                <div class="flex flex-col gap-0.5">
+                                    <span class="text-[13px] font-bold text-text-primary/90 tracking-tight">
+                                        {activePlan.title || 'Execution Plan'}
+                                    </span>
+                                    <span class="text-[10px] font-medium text-text-secondary/50 tracking-wide">
+                                        {completedSteps} / {totalSteps} steps completed
+                                    </span>
+                                </div>
                             </div>
-                            <span class="text-[12px] font-black uppercase tracking-widest text-accent/90">
-                                {activePlan.title || 'Mission Plan'}
+                            <span class="text-[11px] font-mono font-semibold text-accent/70 tabular-nums">
+                                {progressPercent.toFixed(0)}%
                             </span>
                         </div>
 
-                        <div class="flex flex-col gap-3">
-                            {#each activePlan.steps as step (step.id)}
+                        <!-- Progress Bar -->
+                        <div class="w-full h-1.5 bg-white/5 rounded-full overflow-hidden mb-4">
+                            <div
+                                class="h-full bg-gradient-to-r from-accent/70 to-accent transition-all duration-700 ease-out"
+                                style="width: {progressPercent}%"
+                            ></div>
+                        </div>
+
+                        <!-- Steps List -->
+                        <div class="flex flex-col gap-2">
+                            {#each activePlan.steps as step, idx (step.id)}
                                 {@const StepIcon = getPlanStepIcon(step.status)}
-                                <div class="flex items-start gap-3 group/plan-step">
-                                    <div class="mt-0.5 {getPlanStepColor(step.status)} transition-colors duration-300">
-                                        <StepIcon size={12} />
+                                {@const isActive = step.status === 'in_progress'}
+                                {@const isCompleted = step.status === 'completed'}
+                                {@const isFailed = step.status === 'failed'}
+
+                                <div class="flex items-start gap-3 group/plan-step py-1.5 px-2 rounded-lg transition-colors {isActive ? 'bg-accent/5' : 'hover:bg-white/[0.02]'}">
+                                    <!-- Step Number & Icon -->
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        <span class="text-[10px] font-mono font-bold text-text-secondary/40 w-4 text-right">
+                                            {idx + 1}
+                                        </span>
+                                        <div class="mt-0.5 {getPlanStepColor(step.status)} transition-all duration-300">
+                                            <StepIcon size={14} strokeWidth={2} />
+                                        </div>
                                     </div>
-                                    <div class="flex flex-col gap-0.5">
-                                        <span class="text-[13px] leading-tight transition-colors duration-300 {step.status === 'completed' ? 'text-text-secondary/50 line-through' : 'text-text-primary/80 group-hover/plan-step:text-text-primary'}">
+
+                                    <!-- Step Description -->
+                                    <div class="flex flex-col gap-1 flex-1 min-w-0">
+                                        <span class="text-[12px] leading-snug transition-colors duration-300 {
+                                            isCompleted ? 'text-text-secondary/40 line-through' :
+                                            isFailed ? 'text-red-400/60' :
+                                            isActive ? 'text-text-primary font-medium' :
+                                            'text-text-secondary/70'
+                                        }">
                                             {step.description}
                                         </span>
+
+                                        <!-- Status Badge -->
                                         {#if step.status !== 'pending'}
-                                            <span class="text-[9px] uppercase tracking-tighter opacity-40 font-bold">
-                                                {step.status}
+                                            <span class="text-[9px] uppercase tracking-wider font-semibold w-fit px-1.5 py-0.5 rounded {
+                                                isCompleted ? 'text-green-400/70 bg-green-400/10' :
+                                                isFailed ? 'text-red-400/70 bg-red-400/10' :
+                                                isActive ? 'text-accent/80 bg-accent/10' :
+                                                'text-text-secondary/50 bg-white/5'
+                                            }">
+                                                {step.status.replace('_', ' ')}
                                             </span>
                                         {/if}
                                     </div>
@@ -266,44 +314,66 @@
                                     {/if}
                                     
                                     {#if step.toolName === 'manage_plan' && step.content && step.content.includes('LOCAL_TOOL_SIGNAL')}
-                                        <!-- If we still have a raw signal (interception failed or in-progress) -->
+                                        <!-- Plan initialization in progress -->
                                         {@const jsonPart = step.content.split('LOCAL_TOOL_SIGNAL:manage_plan:')[1]}
-                                        <div class="flex flex-col gap-3 p-4 rounded-xl bg-accent/5 border border-accent/10">
-                                            <div class="flex items-center gap-2 italic text-text-secondary/60">
-                                                <RotateCw size={12} class="animate-spin-slow" />
-                                                <span class="text-[11px] uppercase tracking-wider font-bold">Initializing Mission Plan...</span>
+                                        <div class="flex flex-col gap-2.5 p-3 rounded-lg bg-accent/5 border border-accent/10">
+                                            <div class="flex items-center gap-2.5 text-text-secondary/70">
+                                                <RotateCw size={12} class="animate-spin-slow text-accent/70" strokeWidth={2.5} />
+                                                <span class="text-[10px] uppercase tracking-wider font-bold">Processing plan request</span>
                                             </div>
-                                            
+
                                             {#if jsonPart}
-                                                <div class="text-[10px] opacity-30 truncate">
-                                                    {jsonPart.slice(0, 100)}...
+                                                <div class="text-[9px] opacity-25 truncate font-mono text-text-secondary/50">
+                                                    {jsonPart.slice(0, 80)}...
                                                 </div>
                                             {/if}
                                         </div>
                                     {:else if step.toolName === 'manage_plan' && step.content}
                                         {@const parsedPlan = tryParsePlan(step.content)}
                                         {#if parsedPlan}
-                                            <div class="flex flex-col gap-3 p-4 rounded-xl bg-accent/5 border border-accent/10">
-                                                <div class="flex items-center gap-2 mb-2">
-                                                    <ClipboardList size={14} class="text-accent" />
-                                                    <span class="text-[11px] uppercase tracking-wider font-bold text-accent/90">
-                                                        {parsedPlan.title || 'Mission Plan Update'}
+                                            {@const planCompleted = parsedPlan.steps.filter(s => s.status === 'completed').length}
+                                            {@const planTotal = parsedPlan.steps.length}
+
+                                            <div class="flex flex-col gap-3 p-3 rounded-lg bg-accent/5 border border-accent/10">
+                                                <div class="flex items-center justify-between">
+                                                    <div class="flex items-center gap-2">
+                                                        <ClipboardList size={13} class="text-accent" strokeWidth={2.5} />
+                                                        <span class="text-[11px] font-bold text-accent/90 tracking-tight">
+                                                            {parsedPlan.title || 'Plan Update'}
+                                                        </span>
+                                                    </div>
+                                                    <span class="text-[9px] font-mono text-text-secondary/50">
+                                                        {planCompleted}/{planTotal}
                                                     </span>
                                                 </div>
-                                                <div class="flex flex-col gap-2">
-                                                    {#each parsedPlan.steps as pStep}
+                                                <div class="flex flex-col gap-1.5">
+                                                    {#each parsedPlan.steps as pStep, pidx}
                                                         {@const PStepIcon = getPlanStepIcon(pStep.status)}
-                                                        <div class="flex items-start gap-3">
+                                                        {@const pIsCompleted = pStep.status === 'completed'}
+                                                        {@const pIsFailed = pStep.status === 'failed'}
+
+                                                        <div class="flex items-start gap-2">
+                                                            <span class="text-[9px] font-mono font-bold text-text-secondary/30 w-3 text-right mt-0.5">
+                                                                {pidx + 1}
+                                                            </span>
                                                             <div class="mt-0.5 {getPlanStepColor(pStep.status)}">
-                                                                <PStepIcon size={12} />
+                                                                <PStepIcon size={11} strokeWidth={2} />
                                                             </div>
-                                                            <div class="flex flex-col gap-0.5">
-                                                                <span class="text-[12px] leading-tight {pStep.status === 'completed' ? 'text-text-secondary/50 line-through' : 'text-text-secondary/90'}">
+                                                            <div class="flex flex-col gap-0.5 flex-1">
+                                                                <span class="text-[11px] leading-tight {
+                                                                    pIsCompleted ? 'text-text-secondary/40 line-through' :
+                                                                    pIsFailed ? 'text-red-400/60' :
+                                                                    'text-text-secondary/80'
+                                                                }">
                                                                     {pStep.description}
                                                                 </span>
                                                                 {#if pStep.status !== 'pending'}
-                                                                    <span class="text-[9px] uppercase tracking-tighter opacity-40 font-bold">
-                                                                        {pStep.status}
+                                                                    <span class="text-[8px] uppercase tracking-wider font-semibold w-fit px-1 py-0.5 rounded {
+                                                                        pIsCompleted ? 'text-green-400/60 bg-green-400/10' :
+                                                                        pIsFailed ? 'text-red-400/60 bg-red-400/10' :
+                                                                        'text-text-secondary/40 bg-white/5'
+                                                                    }">
+                                                                        {pStep.status.replace('_', ' ')}
                                                                     </span>
                                                                 {/if}
                                                             </div>
@@ -312,12 +382,18 @@
                                                 </div>
                                             </div>
                                         {:else}
-                                            <div class="p-3 rounded-xl bg-accent/5 border border-accent/10 text-accent/90 font-medium">
-                                                <div class="flex items-center gap-2 mb-2">
-                                                    <CheckCircle2 size={14} class="text-green-400/70" />
-                                                    <span class="text-[11px] uppercase tracking-wider font-bold">System Action Successful</span>
+                                            {@const isError = step.content && (step.content.includes('invalid') || step.content.includes('Error') || step.content.includes('failed') || step.content.includes('cannot'))}
+                                            <div class="p-3 rounded-lg border {isError ? 'bg-red-500/5 border-red-500/15' : 'bg-accent/5 border-accent/10'}">
+                                                <div class="flex items-center gap-2 mb-1.5">
+                                                    {#if isError}
+                                                        <AlertCircle size={12} class="text-red-400/80" strokeWidth={2.5} />
+                                                        <span class="text-[10px] uppercase tracking-wider font-bold text-red-400/80">Plan Error</span>
+                                                    {:else}
+                                                        <CheckCircle2 size={12} class="text-green-400/70" strokeWidth={2.5} />
+                                                        <span class="text-[10px] uppercase tracking-wider font-bold text-green-400/70">Plan Action</span>
+                                                    {/if}
                                                 </div>
-                                                {step.content}
+                                                <div class="text-[11px] leading-relaxed {isError ? 'text-red-300/70 font-mono' : 'text-text-secondary/80'}">{step.content}</div>
                                             </div>
                                         {/if}
                                     {:else if step.content}
@@ -325,41 +401,40 @@
                                     {/if}
                                     
                                     {#if step.reasoning}
-                                        <div class="mt-4 p-3 rounded-xl bg-accent/5 border border-accent/10">
-                                            <div class="text-[10px] font-black text-accent/80 uppercase tracking-wider mb-2">Strategy & Reasoning</div>
-                                            <div class="text-[12px] italic text-text-secondary/70 leading-relaxed">{step.reasoning}</div>
+                                        <div class="mt-3 p-3 rounded-lg bg-accent/5 border border-accent/10">
+                                            <div class="text-[9px] font-bold text-accent/70 uppercase tracking-wider mb-1.5">Reasoning</div>
+                                            <div class="text-[11px] text-text-secondary/75 leading-relaxed">{step.reasoning}</div>
                                         </div>
                                     {/if}
 
-                                    <!-- Agentic Loop Metadata -->
+                                    <!-- Analysis Metadata -->
                                     {#if step.self_critique || step.confidence_score != null || (step.plan_status && step.plan_status !== 'in_progress')}
-                                        <div class="mt-4 pt-4 border-t border-white/5 flex flex-col gap-3">
+                                        <div class="mt-3 pt-3 border-t border-white/5 flex flex-col gap-2.5">
                                             {#if step.self_critique}
-                                                <div class="p-3 rounded-xl bg-red-500/5 border border-red-500/10">
-                                                    <div class="flex items-center gap-2 mb-2">
-                                                        <AlertCircle size={10} class="text-red-400" />
-                                                        <div class="text-[10px] font-black text-red-400 uppercase tracking-wider">Self Critique</div>
+                                                <div class="p-2.5 rounded-lg bg-orange-500/5 border border-orange-500/10">
+                                                    <div class="flex items-center gap-1.5 mb-1.5">
+                                                        <AlertCircle size={10} class="text-orange-400/80" strokeWidth={2.5} />
+                                                        <div class="text-[9px] font-bold text-orange-400/80 uppercase tracking-wider">Analysis</div>
                                                     </div>
-                                                    <div class="text-[12px] italic text-text-secondary/80">{step.self_critique}</div>
+                                                    <div class="text-[11px] text-text-secondary/75 leading-relaxed">{step.self_critique}</div>
                                                 </div>
                                             {/if}
-                                            
-                                            <div class="flex flex-wrap items-center gap-4">
+
+                                            <div class="flex flex-wrap items-center gap-2.5">
                                                 {#if step.confidence_score != null}
-                                                    <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/20 border border-white/5 shadow-sm">
-                                                        <div class="text-[10px] font-bold uppercase tracking-wider opacity-50">Confidence</div>
-                                                        <div class="text-xs font-mono font-bold text-accent">{(step.confidence_score * 100).toFixed(0)}%</div>
-                                                        <!-- Mini visual bar -->
-                                                        <div class="w-12 h-1 bg-white/5 rounded-full overflow-hidden hidden sm:block">
-                                                            <div class="h-full bg-accent transition-all duration-1000" style="width: {step.confidence_score * 100}%"></div>
+                                                    <div class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md bg-white/[0.02] border border-white/5">
+                                                        <div class="text-[9px] font-semibold uppercase tracking-wider text-text-secondary/50">Confidence</div>
+                                                        <div class="text-[10px] font-mono font-bold text-accent tabular-nums">{(step.confidence_score * 100).toFixed(0)}%</div>
+                                                        <div class="w-16 h-1 bg-white/5 rounded-full overflow-hidden">
+                                                            <div class="h-full bg-gradient-to-r from-accent/60 to-accent transition-all duration-700" style="width: {step.confidence_score * 100}%"></div>
                                                         </div>
                                                     </div>
                                                 {/if}
-                                                
+
                                                 {#if step.plan_status && step.plan_status !== 'in_progress'}
-                                                    <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/20 border border-white/5 shadow-sm">
-                                                        <div class="text-[10px] font-bold uppercase tracking-wider opacity-50">Status</div>
-                                                        <div class="text-xs font-bold text-text-primary capitalize">{step.plan_status.replace('_', ' ')}</div>
+                                                    <div class="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-white/[0.02] border border-white/5">
+                                                        <div class="text-[9px] font-semibold uppercase tracking-wider text-text-secondary/50">Phase</div>
+                                                        <div class="text-[10px] font-semibold text-text-primary/80 capitalize">{step.plan_status.replace('_', ' ')}</div>
                                                     </div>
                                                 {/if}
                                             </div>

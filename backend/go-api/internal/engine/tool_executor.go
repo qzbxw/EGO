@@ -117,6 +117,19 @@ func (te *toolExecutor) executePlanManager(query string, sessionUUID string, cal
 		return "", fmt.Errorf("invalid JSON for manage_plan: %w", err)
 	}
 
+	// Validate action before processing
+	validActions := []string{"create", "update_step", "complete"}
+	isValidAction := false
+	for _, va := range validActions {
+		if args.Action == va {
+			isValidAction = true
+			break
+		}
+	}
+	if !isValidAction {
+		return "", fmt.Errorf("invalid action '%s'. Valid actions are: create, update_step, complete", args.Action)
+	}
+
 	switch args.Action {
 	case "create":
 		if len(args.Steps) == 0 {
@@ -127,7 +140,7 @@ func (te *toolExecutor) executePlanManager(query string, sessionUUID string, cal
 			return "", err
 		}
 		callback("plan_updated", plan)
-		
+
 		// Return the full plan JSON so the frontend can render it nicely
 		planJSON, err := json.Marshal(plan)
 		if err != nil {
@@ -138,9 +151,23 @@ func (te *toolExecutor) executePlanManager(query string, sessionUUID string, cal
 	case "update_step":
 		plan, err := te.db.GetActivePlan(sessionUUID)
 		if err != nil || plan == nil {
-			return "", fmt.Errorf("no active plan found")
+			return "", fmt.Errorf("no active plan found for this session")
 		}
+
+		// Validate status if provided
 		if args.Status != "" {
+			validStatuses := []string{"pending", "in_progress", "completed", "failed", "skipped"}
+			isValidStatus := false
+			for _, vs := range validStatuses {
+				if args.Status == vs {
+					isValidStatus = true
+					break
+				}
+			}
+			if !isValidStatus {
+				return "", fmt.Errorf("invalid status '%s'. Valid statuses: pending, in_progress, completed, failed, skipped", args.Status)
+			}
+
 			if err := te.db.UpdateStepStatus(plan.ID, args.StepOrder, args.Status); err != nil {
 				return "", err
 			}
@@ -155,7 +182,7 @@ func (te *toolExecutor) executePlanManager(query string, sessionUUID string, cal
 		if err != nil {
 			return "Step updated, but failed to fetch updated plan.", nil
 		}
-		
+
 		if updatedPlan != nil {
 			callback("plan_updated", updatedPlan)
 			planJSON, err := json.Marshal(updatedPlan)
