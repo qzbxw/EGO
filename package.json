@@ -1,54 +1,53 @@
 {
-	"name": "ego",
-	"version": "1.0.0",
-	"private": true,
-	"description": "EGO - AI Agent System",
-	"scripts": {
-		"prepare": "husky",
-		"lint": "npm run lint:frontend && npm run lint:backend && npm run lint:go",
-		"lint:frontend": "cd frontend && npm run lint",
-		"lint:backend": "cd backend/python-api && .venv/bin/ruff check . && .venv/bin/mypy .",
-		"lint:go": "cd backend/go-api && golangci-lint run ./...",
-		"format": "npm run format:frontend && npm run format:backend && npm run format:go",
-		"format:frontend": "cd frontend && npm run format",
-		"format:backend": "cd backend/python-api && .venv/bin/ruff format .",
-		"format:go": "cd backend/go-api && go fmt ./...",
-		"check": "npm run lint && npm run format:check",
-		"format:check": "npm run format:check:frontend && npm run format:check:backend && npm run format:check:go",
-		"format:check:frontend": "cd frontend && prettier --check .",
-		"format:check:backend": "cd backend/python-api && .venv/bin/ruff format --check .",
-		"format:check:go": "cd backend/go-api && test -z $(gofmt -l .)",
-		"test": "npm run test:frontend && npm run test:backend && npm run test:go",
-		"test:frontend": "cd frontend && npm run test || echo '⚠️  Frontend tests not yet implemented'",
-		"test:backend": "cd backend/python-api && .venv/bin/pytest || echo '⚠️  Backend tests not yet implemented'",
-		"test:go": "cd backend/go-api && go test ./... || echo '⚠️  Go tests not yet implemented'"
-	},
-	"keywords": [
-		"ai",
-		"agent",
-		"llm"
-	],
-	"license": "MIT",
-	"devDependencies": {
-		"husky": "^9.1.7",
-		"lint-staged": "^15.2.11",
-		"prettier": "^3.8.1"
-	},
-	                        "lint-staged": {
-	                                "frontend/**/*.{js,ts,svelte,json,css,md}": [
-	                                        "prettier --write"
-	                                ],
-	                                "backend/python-api/**/*.py": [
-	                                        "ruff check --fix",
-	                                        "ruff format"
-	                                ],
-	                                "backend/go-api/**/*.go": [
-	                                        "gofmt -w",
-	                                        "go vet"
-	                                ],
-	                                "*.{json,yaml,yml,md}": [
-	                                        "prettier --write"
-	                                ]
-	                        }
-	                
-	        }
+  "name": "ego",
+  "version": "1.0.0",
+  "private": true,
+  "description": "EGO - AI Agent System",
+  "scripts": {
+    "prepare": "husky",
+    "lint": "npm run lint:frontend && npm run lint:backend && npm run lint:go",
+    "lint:frontend": "cd frontend && npm run lint",
+    "lint:backend": "cd backend/python-api && .venv/bin/ruff check . && .venv/bin/mypy .",
+    "lint:go": "cd backend/go-api && golangci-lint run ./...",
+    "format": "npm run format:frontend && npm run format:backend && npm run format:go",
+    "format:frontend": "cd frontend && npm run format",
+    "format:backend": "cd backend/python-api && .venv/bin/ruff format .",
+    "format:go": "cd backend/go-api && go fmt ./...",
+    "check": "npm run lint && npm run format:check",
+    "format:check": "npm run format:check:frontend && npm run format:check:backend && npm run format:check:go",
+    "format:check:frontend": "cd frontend && prettier --check .",
+    "format:check:backend": "cd backend/python-api && .venv/bin/ruff format --check .",
+    "format:check:go": "cd backend/go-api && test -z $(gofmt -l .)",
+    "test": "npm run test:frontend && npm run test:backend && npm run test:go",
+    "test:frontend": "cd frontend && npm run test || echo '⚠️  Frontend tests not yet implemented'",
+    "test:backend": "cd backend/python-api && .venv/bin/pytest || echo '⚠️  Backend tests not yet implemented'",
+    "test:go": "cd backend/go-api && go test ./... || echo '⚠️  Go tests not yet implemented'"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "llm"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.11",
+    "prettier": "^3.8.1"
+  },
+  "lint-staged": {
+    "frontend/**/*.{js,ts,svelte,json,css,md}": [
+      "cd frontend && npx prettier --write"
+    ],
+    "backend/python-api/**/*.py": [
+      "cd backend/python-api && .venv/bin/ruff check --fix",
+      "cd backend/python-api && .venv/bin/ruff format"
+    ],
+    "backend/go-api/**/*.go": [
+      "cd backend/go-api && gofmt -w",
+      "cd backend/go-api && go vet"
+    ],
+    "*.{json,yaml,yml,md}": [
+      "prettier --write"
+    ]
+  }
+}
