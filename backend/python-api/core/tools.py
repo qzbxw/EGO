@@ -20,9 +20,11 @@ try:
     from google import genai
     from google.genai import errors as genai_errors
 except ImportError:
-    logging.critical("Google GenAI library not found. Please install 'google-genai'.")
-    genai = None
-    genai_errors = None
+    logging.error(
+        "Google GenAI library not found. Please install it using 'pip install google-genai'"
+    )
+    genai = None  # type: ignore
+    genai_errors = None  # type: ignore
 
 # -----------------------------------------------------------------------------
 # --- Local Module Imports

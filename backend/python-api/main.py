@@ -6,7 +6,6 @@ import io
 import json
 import os
 import time
-from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
@@ -844,11 +843,16 @@ async def simple_health_check():
 @app.post("/generate_thought")
 async def generate_thought(request: Request):
     request_data = await request.form()
-    ego_req = EgoRequest.parse_raw(request_data["request_data"])
+    # Cast because request_data values can be strings or UploadFiles
+    raw_req = request_data.get("request_data")
+    if not isinstance(raw_req, (str, bytes)):
+        raise HTTPException(status_code=400, detail="Missing request_data")
 
-    files_data = []
+    ego_req = EgoRequest.parse_raw(raw_req)
+
+    files_data: list[UploadFile] = []
     for key, file in request_data.items():
-        if key != "request_data" and hasattr(file, "read"):
+        if key != "request_data" and isinstance(file, UploadFile):
             files_data.append(file)
 
     async def event_generator():
@@ -874,7 +878,9 @@ async def generate_thought(request: Request):
                 user_id=ego_req.user_id,
                 session_uuid=ego_req.session_uuid,
                 current_log_id=ego_req.log_id,
-                memory_enabled=ego_req.memory_enabled,
+                memory_enabled=ego_req.memory_enabled
+                if ego_req.memory_enabled is not None
+                else True,
                 current_plan=ego_req.current_plan,
                 current_date=ego_req.current_date,
                 user_profile=ego_req.user_profile,
@@ -1089,7 +1095,7 @@ async def synthesize_stream(
         prompt_parts = await process_files(request, files, ego_req.cached_files, backend=backend)
         log.debug(f"Processed {len(prompt_parts)} file parts for synthesis stream.")
 
-        async def event_generator() -> AsyncGenerator[str, None]:
+        async def event_generator():
             """This inner function is the actual async generator for the SSE stream."""
             try:
                 # --- Handle memory cleanup if this is a response regeneration.
@@ -1116,12 +1122,13 @@ async def synthesize_stream(
                     user_id=ego_req.user_id,
                     session_uuid=ego_req.session_uuid,
                     current_log_id=ego_req.log_id,
-                    memory_enabled=ego_req.memory_enabled,
+                    memory_enabled=ego_req.memory_enabled
+                    if ego_req.memory_enabled is not None
+                    else True,
                     current_plan=ego_req.current_plan,
                     current_date=ego_req.current_date,
                     user_profile=ego_req.user_profile,
                 )
-
                 full_response_text: list[str] = []
                 async for chunk in stream:
                     # Check for control messages
