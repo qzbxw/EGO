@@ -78,13 +78,13 @@ jobs:
             export COMPOSE_DOCKER_CLI_BUILD=1
 
             echo "Building frontend..."
-            docker-compose build frontend
+            docker compose build frontend
 
             echo "Building go-api..."
-            docker-compose build go-api
+            docker compose build go-api
 
             echo "Building python-api..."
-            docker-compose build python-api
+            docker compose build python-api
 
             echo "✅ All images built successfully"
           EOF
@@ -96,10 +96,10 @@ jobs:
             cd ${{ secrets.DEPLOY_PATH || '/home/ubuntu/EGO' }}
 
             echo "Stopping old containers..."
-            docker-compose down
+            docker compose down
 
             echo "Starting new containers..."
-            docker-compose up -d
+            docker compose up -d
 
             echo "✅ Services restarted"
           EOF
@@ -120,14 +120,14 @@ jobs:
 
             echo ""
             echo "Services status:"
-            docker-compose ps
+            docker compose ps
 
             echo ""
             echo "Waiting for services to be healthy..."
             sleep 10
 
             # Check frontend
-            if docker-compose ps frontend | grep -q "Up"; then
+            if docker compose ps frontend | grep -q "Up"; then
               echo "✅ Frontend: Running"
             else
               echo "❌ Frontend: Not running"
@@ -135,7 +135,7 @@ jobs:
             fi
 
             # Check go-api
-            if docker-compose ps go-api | grep -q "Up"; then
+            if docker compose ps go-api | grep -q "Up"; then
               echo "✅ Go API: Running"
             else
               echo "❌ Go API: Not running"
@@ -143,7 +143,7 @@ jobs:
             fi
 
             # Check python-api
-            if docker-compose ps python-api | grep -q "Up"; then
+            if docker compose ps python-api | grep -q "Up"; then
               echo "✅ Python API: Running"
             else
               echo "❌ Python API: Not running"
@@ -151,7 +151,7 @@ jobs:
             fi
 
             # Check postgres
-            if docker-compose ps postgres-db | grep -q "healthy"; then
+            if docker compose ps postgres-db | grep -q "healthy"; then
               echo "✅ PostgreSQL: Healthy"
             else
               echo "⚠️  PostgreSQL: Starting..."
@@ -171,7 +171,7 @@ jobs:
           echo "📊 Recent logs:"
           ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
             cd ${{ secrets.DEPLOY_PATH || '/home/ubuntu/EGO' }}
-            docker-compose logs --tail=50
+            docker compose logs --tail=50
           EOF
 
       - name: 🎉 Deployment Complete

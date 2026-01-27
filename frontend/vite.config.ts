@@ -4,7 +4,7 @@ import process from 'node:process';
 
 // Allow overriding backend targets in containerized dev via env
 const ENV = process.env ?? {};
-// Default to Docker service names to work inside docker-compose; override locally via env
+// Default to Docker service names to work inside docker compose; override locally via env
 const BACKEND_TARGET: string = ENV.VITE_DEV_PROXY_TARGET || 'http://go-api:8080';
 const BACKEND_WS_TARGET: string = BACKEND_TARGET.startsWith('https')
 	? BACKEND_TARGET.replace(/^https/, 'wss')

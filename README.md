@@ -130,7 +130,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 ### 3. Launch
 ```bash
 # Start all services (Backend, Frontend, DB, MinIO, Sandbox)
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 ### 4. Access

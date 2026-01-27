@@ -40,7 +40,7 @@ jobs:
             all_healthy=true
 
             for service in "${services[@]}"; do
-              if docker-compose ps $service | grep -q "Up"; then
+              if docker compose ps $service | grep -q "Up"; then
                 echo "✅ $service: Running"
               else
                 echo "❌ $service: Down"
@@ -74,7 +74,7 @@ jobs:
           echo "🔄 Attempting to restart services..."
           ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
             cd ${{ secrets.DEPLOY_PATH || '/home/ubuntu/EGO' }}
-            docker-compose restart
+            docker compose restart
             sleep 10
-            docker-compose ps
+            docker compose ps
           EOF

@@ -92,8 +92,8 @@ lint:
 	cd frontend && npm run lint
 	@echo ""
 	@echo "$(YELLOW)🐍 Linting Python backend...$(NC)"
-	cd backend/python-api && .venv/bin/ruff check .
-	cd backend/python-api && .venv/bin/mypy .
+	cd backend/python-api && ( [ -f .venv/bin/ruff ] && .venv/bin/ruff check . || ruff check . )
+	cd backend/python-api && ( [ -f .venv/bin/mypy ] && .venv/bin/mypy . || mypy . )
 	@echo ""
 	@echo "$(YELLOW)🦫 Linting Go backend...$(NC)"
 	cd backend/go-api && go vet ./...
@@ -108,7 +108,7 @@ format:
 	cd frontend && npm run format
 	@echo ""
 	@echo "$(YELLOW)🐍 Formatting Python backend...$(NC)"
-	cd backend/python-api && .venv/bin/ruff format .
+	cd backend/python-api && ( [ -f .venv/bin/ruff ] && .venv/bin/ruff format . || ruff format . )
 	@echo ""
 	@echo "$(YELLOW)🦫 Formatting Go backend...$(NC)"
 	cd backend/go-api && go fmt ./...
@@ -122,7 +122,7 @@ check: lint
 	cd frontend && npx prettier --check .
 	@echo ""
 	@echo "$(YELLOW)🐍 Python...$(NC)"
-	cd backend/python-api && .venv/bin/ruff format --check .
+	cd backend/python-api && ( [ -f .venv/bin/ruff ] && .venv/bin/ruff format --check . || ruff format --check . )
 	@echo ""
 	@echo "$(YELLOW)🦫 Go...$(NC)"
 	cd backend/go-api && [ -z "$$(gofmt -l .)" ]
@@ -147,7 +147,7 @@ test: test-python test-go test-frontend
 
 test-python:
 	@echo "$(BLUE)🐍 Running Python tests...$(NC)"
-	cd backend/python-api && .venv/bin/pytest || echo "$(YELLOW)⚠️  No tests found$(NC)"
+	cd backend/python-api && ( [ -f .venv/bin/pytest ] && .venv/bin/pytest || pytest ) || echo "$(YELLOW)⚠️  No tests found$(NC)"
 test-go:
 	@echo "$(BLUE)🦫 Running Go tests...$(NC)"
 	cd backend/go-api && go test ./... || echo "$(YELLOW)⚠️  No tests found$(NC)"
@@ -195,19 +195,19 @@ clean-all: clean
 
 docker-build:
 	@echo "$(BLUE)🐳 Building Docker images...$(NC)"
-	@export DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 && docker-compose build
+	@export DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 && docker compose build
 	@echo "$(GREEN)✅ Build complete!$(NC)"
 
 docker-up:
 	@echo "$(BLUE)🚀 Starting services...$(NC)"
-	@export DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 && docker-compose up -d
+	@export DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 && docker compose up -d
 	@echo "$(GREEN)✅ Services started!$(NC)"
-	@docker-compose ps
+	@docker compose ps
 
 docker-down:
 	@echo "$(BLUE)🛑 Stopping services...$(NC)"
-	@docker-compose down
+	@docker compose down
 	@echo "$(GREEN)✅ Services stopped!$(NC)"
 
 docker-logs:
-	@docker-compose logs -f
+	@docker compose logs -f
