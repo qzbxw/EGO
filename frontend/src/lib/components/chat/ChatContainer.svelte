@@ -2,14 +2,13 @@
 	import type { ChatMessage, ChatSession, ChatMode, FilePayload } from '$lib/types';
 	import { toast } from 'svelte-sonner';
 	import { _ } from 'svelte-i18n';
-	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { tick } from 'svelte';
 	import { auth } from '$lib/stores/auth.svelte.ts';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { cachedFiles } from '$lib/stores/cachedFiles.svelte.ts';
 	import { api } from '$lib/api';
-    import { connectionManager } from '$lib/connection-manager';
+	import { connectionManager } from '$lib/connection-manager';
 	import {
 		startStream,
 		stopStreamAsCancelled,
@@ -20,13 +19,12 @@
 	import { fade } from 'svelte/transition';
 	import { preferencesStore } from '$lib/stores/preferences.svelte.ts';
 	import { inFlightStore } from '$lib/stores/inflight.svelte.ts';
-	import { compressImages, shouldCompress } from '$lib/utils/imageCompression';
+	import { shouldCompress } from '$lib/utils/imageCompression';
 	import { imageCompressionWorker } from '$lib/utils/imageCompressionWorker';
 	import { debounce } from '$lib/utils/debounce';
 	import { maintenanceStore } from '$lib/stores/maintenance-store.svelte.ts';
 	import MessageList from './MessageList.svelte';
 	import ChatInput from './ChatInput.svelte';
-	import SessionCreationOverlay from './SessionCreationOverlay.svelte';
 	import ChatMaintenanceOverlay from '../ChatMaintenanceOverlay.svelte';
 
 	let {
@@ -63,35 +61,14 @@
 	let currentSession = $derived(chatStore.getSessionById(sessionID) || initialSession);
 
 	let messages = $derived(
-		// Use chatStore.messages if:
-		// 1. The stream sessionUUID matches current sessionID
-		// 2. OR we have messages in store and it's for the current session
 		(() => {
-			const storeSessionUUID = chatStore.stream.sessionUUID;
-			const messagesSessionUUID = chatStore.messagesSessionUUID;
-			const storeHasMessages = chatStore.messages.length > 0;
-
-			// Check if store has messages for current session (checking both stream and message store UUIDs for robustness)
-			if ((storeSessionUUID === sessionID || messagesSessionUUID === sessionID) && storeHasMessages) {
+			if (chatStore.messages && chatStore.messages.length > 0) {
 				return chatStore.messages;
 			}
-
 			// Fallback to initialMessages
 			return initialMessages;
 		})()
 	);
-
-	let lastMessageLogId = $derived(
-		(() => {
-			const withLog = [...messages].reverse().find((m) => m.logId);
-			return withLog && withLog.logId ? withLog.logId : null;
-		})()
-	);
-
-	let showCreationOverlay = $derived(sessionID === 'new' && sending && !streamStore.isDone);
-
-    // No longer check connection status for "isConnecting", assume always ready unless no auth
-	let isConnecting = $derived(false);
 
 	// ============================================================================
 	// HELPER FUNCTIONS
@@ -127,14 +104,22 @@
 		if (sending || (!currentInput.trim() && attachedFiles.length === 0)) return;
 
 		// Validation for Video/Audio based on provider
-		const hasLargeMedia = attachedFiles.some(f => {
+		const hasLargeMedia = attachedFiles.some((f) => {
 			const type = f.type.toLowerCase();
-			return type.startsWith('video/') || type.startsWith('audio/') || type === 'application/pdf' || type.startsWith('text/');
+			return (
+				type.startsWith('video/') ||
+				type.startsWith('audio/') ||
+				type === 'application/pdf' ||
+				type.startsWith('text/')
+			);
 		});
 
 		const currentProvider = auth.user?.llm_provider || 'ego';
 		if (hasLargeMedia && currentProvider !== 'ego' && currentProvider !== 'gemini') {
-			toast.error($_('chat.media_only_ego_gemini') || 'Advanced files (Video, Audio, PDF) are only supported for EGO and Gemini models.');
+			toast.error(
+				$_('chat.media_only_ego_gemini') ||
+					'Advanced files (Video, Audio, PDF) are only supported for EGO and Gemini models.'
+			);
 			return;
 		}
 
@@ -204,7 +189,9 @@
 					try {
 						const m = dataUrl.match(/^data:([^;]+);base64,/i);
 						if (m && m[1]) inferredMime = m[1];
-					} catch {}
+					} catch {
+						// ignore
+					}
 
 					const mime = file.type && file.type.length > 0 ? file.type : inferredMime || 'image/png';
 					let fname = file.name && file.name.length > 0 ? file.name : '';
@@ -223,12 +210,12 @@
 				})
 			);
 
-			let pendingNewUUID: string | null = null;
-
 			// Handle session creation if it's new
 			if (isNew && (!activeSessionUUID || activeSessionUUID === 'new')) {
 				try {
-					const customInstructions = pendingCustomInstructions || (currentSession as ChatSession | null)?.custom_instructions;
+					const customInstructions =
+						pendingCustomInstructions ||
+						(currentSession as ChatSession | null)?.custom_instructions;
 					const newSession = await api.post<ChatSession>('/sessions', {
 						custom_instructions: customInstructions || undefined
 					});
@@ -237,7 +224,6 @@
 						chatStore.addSession(newSession);
 						const oldUUID = activeSessionUUID;
 						activeSessionUUID = newSession.uuid;
-						pendingNewUUID = newSession.uuid;
 
 						chatStore.setNewlyCreatedSessionUUID(newSession.uuid);
 
@@ -252,9 +238,12 @@
 					}
 				} catch (e) {
 					console.error('[ChatContainer] Pre-create session failed', e);
-                    toast.error($_('errors.session_creation_failed') || 'Failed to create a new session. Please try again.');
-                    sending = false;
-                    return;
+					toast.error(
+						$_('errors.session_creation_failed') ||
+							'Failed to create a new session. Please try again.'
+					);
+					sending = false;
+					return;
 				}
 			}
 
@@ -264,7 +253,7 @@
 			const sessionCachedFiles =
 				currentCachedFiles?.sessionUUID === activeSessionUUID ? currentCachedFiles.files : [];
 
-			const payload: any = {
+			const payload = {
 				query: tempCurrentInput,
 				mode: chatMode,
 				session_uuid: activeSessionUUID && activeSessionUUID !== 'new' ? activeSessionUUID : null,
@@ -272,16 +261,13 @@
 				cached_files: sessionCachedFiles,
 				custom_instructions:
 					!activeSessionUUID || activeSessionUUID === 'new'
-						? (pendingCustomInstructions || currentSession?.custom_instructions)
+						? pendingCustomInstructions || currentSession?.custom_instructions
 						: undefined,
 				is_regeneration: false,
 				temp_id: tempId,
-				memory_enabled: preferencesStore.memoryEnabled
+				memory_enabled: preferencesStore.memoryEnabled,
+				user_id: auth.user?.id ? String(auth.user.id) : undefined
 			};
-
-			if (auth.user?.id) {
-				payload.user_id = String(auth.user.id);
-			}
 
 			// Using connectionManager to send via POST + SSE
 			connectionManager.sendMessage(payload);
@@ -322,15 +308,17 @@
 		if (message.logId) {
 			targetLogId = message.logId;
 			userMessageToRegen =
-				messages.find((m) => m.logId === targetLogId && m.author === 'user') || null;
+				messages.find((m: ChatMessage) => m.logId === targetLogId && m.author === 'user') || null;
 		} else if (message.isThinking && chatStore.stream.currentLogId) {
 			targetLogId = chatStore.stream.currentLogId;
-			const thinkingIndex = messages.findIndex((m) => m.id === message.id);
+			const thinkingIndex = messages.findIndex((m: ChatMessage) => m.id === message.id);
 			if (thinkingIndex > 0) {
 				userMessageToRegen = messages[thinkingIndex - 1];
 			}
 		} else if (!message.isThinking) {
-			const lastUserWithLog = [...messages].reverse().find((m) => m.author === 'user' && m.logId);
+			const lastUserWithLog = [...messages]
+				.reverse()
+				.find((m: ChatMessage) => m.author === 'user' && m.logId);
 			if (lastUserWithLog) {
 				targetLogId = lastUserWithLog.logId!;
 				userMessageToRegen = lastUserWithLog;
@@ -348,7 +336,9 @@
 
 		chatStore.setRegenerating(true);
 
-		const userMessageIndex = messages.findIndex((m) => m.id === userMessageToRegen!.id);
+		const userMessageIndex = messages.findIndex(
+			(m: ChatMessage) => m.id === userMessageToRegen!.id
+		);
 		if (userMessageIndex === -1) {
 			chatStore.setRegenerating(false);
 			return;
@@ -356,9 +346,9 @@
 
 		const sessionId = getActiveSessionUUID();
 
-        // Important: Remove everything AFTER the user message we are regenerating for.
-        // We keep the user message.
-        // EGO's old response was at userMessageIndex + 1.
+		// Important: Remove everything AFTER the user message we are regenerating for.
+		// We keep the user message.
+		// EGO's old response was at userMessageIndex + 1.
 		chatStore.regenerateFrom(sessionId, userMessageIndex + 1);
 
 		resetStreamStore();
@@ -380,7 +370,7 @@
 		const sessionCachedFiles =
 			currentCachedFiles?.sessionUUID === currentSession!.uuid ? currentCachedFiles.files : [];
 
-		const requestData: any = {
+		const requestData = {
 			query: userMessageToRegen.text,
 			mode: chatMode,
 			session_uuid: currentSession!.uuid,
@@ -407,7 +397,9 @@
 		try {
 			editingTextarea?.focus();
 			editingTextarea?.setSelectionRange(editingText.length, editingText.length);
-		} catch {}
+		} catch {
+			// ignore
+		}
 	}
 
 	function cancelEditing() {
@@ -423,11 +415,13 @@
 		const newText = editingText;
 		const sessionId = getActiveSessionUUID();
 
-		const userMessage = messages.find((m) => m.logId === logIdToUpdate && m.author === 'user');
+		const userMessage = messages.find(
+			(m: ChatMessage) => m.logId === logIdToUpdate && m.author === 'user'
+		);
 
 		if (!userMessage) return;
 
-		const userMessageIndex = messages.findIndex((m) => m.id === userMessage.id);
+		const userMessageIndex = messages.findIndex((m: ChatMessage) => m.id === userMessage.id);
 		if (userMessageIndex === -1) return;
 
 		chatStore.setEditingSaving(true);
@@ -441,7 +435,7 @@
 
 		resetStreamStore();
 
-        // Remove old response
+		// Remove old response
 		chatStore.regenerateFrom(sessionId, userMessageIndex + 1);
 
 		// Update user message text
@@ -459,7 +453,7 @@
 		cancelEditing();
 
 		try {
-			await api.patch(`/logs/${logIdToUpdate}`, { query: newText });
+			await api.patch<{ success: boolean }>(`/logs/${logIdToUpdate}`, { query: newText });
 			startStream(currentSession!.uuid);
 			chatStore.stream.currentLogId = logIdToUpdate;
 
@@ -563,56 +557,59 @@
 			// Otherwise, sync with initialMessages from the server load
 			// Only set if we haven't loaded this session yet, or if store is empty but server has data.
 			// Checking initialMessages.length > 0 alone causes infinite loops if loadedSessionUUID === sessionID.
-			if (loadedSessionUUID !== sessionID || (currentMessages.length === 0 && initialMessages.length > 0)) {
+			if (
+				loadedSessionUUID !== sessionID ||
+				(currentMessages.length === 0 && initialMessages.length > 0)
+			) {
 				chatStore.setMessages(sessionID, initialMessages);
 			}
 		}
 	});
 
-    // Check if we need to reconnect to an active stream
-    $effect(() => {
-        // Run this check when sessionID changes or when messages load
-        if (sessionID && sessionID !== 'new' && messages.length > 0) {
-             untrack(() => {
-                 // Logic: If the last message is from 'user', or from 'ego' but looks like it's thinking/loading
-                 // or if we just want to be safe, we can try to reconnect.
-                 // A safer bet: If the last message is User, OR the last message is Ego but incomplete (though we only store final text usually?)
-                 // Actually, if we left mid-stream, the DB might have the user message but no Ego message, or a partial one?
-                 // The standard behavior of the backend: it saves the User query immediately.
-                 // It updates the log with the response only when finished.
-                 // So if we have a User message as the last one, it's highly likely we are waiting for a response.
+	// Check if we need to reconnect to an active stream
+	$effect(() => {
+		// Run this check when sessionID changes or when messages load
+		if (sessionID && sessionID !== 'new' && messages.length > 0) {
+			untrack(() => {
+				// Logic: If the last message is from 'user', or from 'ego' but looks like it's thinking/loading
+				// or if we just want to be safe, we can try to reconnect.
+				// A safer bet: If the last message is User, OR the last message is Ego but incomplete (though we only store final text usually?)
+				// Actually, if we left mid-stream, the DB might have the user message but no Ego message, or a partial one?
+				// The standard behavior of the backend: it saves the User query immediately.
+				// It updates the log with the response only when finished.
+				// So if we have a User message as the last one, it's highly likely we are waiting for a response.
 
-                 const lastMsg = messages[messages.length - 1];
-                 if (lastMsg.author === 'user') {
-                     // We should try to reconnect/listen
-                     // But don't do it if we are already streaming!
-                     if (!streamStore.streaming) {
-                         console.log('[ChatContainer] Last message is user, attempting to reconnect stream...');
-                         // Create a fake "thinking" message if needed?
-                         // If we are reloading the page, the server DB has the user message.
-                         // But the UI needs a placeholder for the answer.
+				const lastMsg = messages[messages.length - 1];
+				if (lastMsg.author === 'user') {
+					// We should try to reconnect/listen
+					// But don't do it if we are already streaming!
+					if (!streamStore.streaming) {
+						console.log('[ChatContainer] Last message is user, attempting to reconnect stream...');
+						// Create a fake "thinking" message if needed?
+						// If we are reloading the page, the server DB has the user message.
+						// But the UI needs a placeholder for the answer.
 
-                         const tempId = Date.now();
-                         const optimisticEgoMessage: ChatMessage = {
-                            author: 'ego',
-                            id: tempId,
-                            text: '',
-                            isThinking: true
-                        };
+						const tempId = Date.now();
+						const optimisticEgoMessage: ChatMessage = {
+							author: 'ego',
+							id: tempId,
+							text: '',
+							isThinking: true
+						};
 
-                        // Check if we already have an optimistic ego message?
-                        // If the user refreshed, `messages` comes from `initialMessages` (from DB).
-                        // DB usually has User Query. If job is running, DB does NOT have the response yet.
-                        // So `messages` ends with User.
+						// Check if we already have an optimistic ego message?
+						// If the user refreshed, `messages` comes from `initialMessages` (from DB).
+						// DB usually has User Query. If job is running, DB does NOT have the response yet.
+						// So `messages` ends with User.
 
-                        chatStore.addOptimisticMessages(sessionID, [optimisticEgoMessage]);
+						chatStore.addOptimisticMessages(sessionID, [optimisticEgoMessage]);
 
-                        connectionManager.reconnectStream(sessionID);
-                     }
-                 }
-             });
-        }
-    });
+						connectionManager.reconnectStream(sessionID);
+					}
+				}
+			});
+		}
+	});
 
 	// Detect mobile
 	$effect(() => {
@@ -694,7 +691,6 @@
 		{editingLogId}
 		{editingText}
 		{editingTextarea}
-		{lastMessageLogId}
 		{streamStore}
 		{isMobile}
 		onscroll={handleScroll}
@@ -706,7 +702,7 @@
 
 	{#if maintenanceStore.isChatMaintenanceActive}
 		<div
-			class="fixed bottom-0 z-20 w-full bg-gradient-to-t from-primary via-primary/80 to-transparent pt-32 pb-8 transition-all duration-500"
+			class="fixed bottom-0 z-20 w-full bg-gradient-to-t from-primary via-primary/80 to-transparent pb-8 pt-32 transition-all duration-500"
 			style="left: var(--sidebar-offset); right: 0; width: auto;"
 			in:fade={{ duration: 300 }}
 		>
@@ -720,7 +716,6 @@
 			bind:attachedFiles
 			bind:chatMode
 			{isMobile}
-			{isConnecting}
 			streamIsDone={streamStore.isDone}
 			{editingLogId}
 			onsend={sendMessage}

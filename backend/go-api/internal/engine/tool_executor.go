@@ -41,16 +41,16 @@ func (te *toolExecutor) execute(toolCalls []models.ToolCall, callback EventCallb
 	for _, tc := range toolCalls {
 		toolCounts[tc.ToolName]++
 	}
-	
+
 	// Launch a goroutine for each tool call.
 	for i, toolCall := range toolCalls {
 		wg.Add(1)
 		// Generate a unique ID for this specific call instance
 		callID := fmt.Sprintf("%s_%d_%d", toolCall.ToolName, time.Now().UnixNano(), i)
-		
+
 		go func(tc models.ToolCall, cid string) {
 			defer wg.Done()
-			
+
 			// Send tool_call with explicit call_id
 			callback("tool_call", map[string]interface{}{
 				"tool_name":  tc.ToolName,
@@ -66,7 +66,7 @@ func (te *toolExecutor) execute(toolCalls []models.ToolCall, callback EventCallb
 			} else {
 				toolResult, err = te.callPythonTool(tc.ToolName, tc.ToolQuery, memEnabled, userID)
 			}
-			
+
 			if err != nil {
 				log.Printf("!!! Tool call error for '%s': %v", tc.ToolName, err)
 				resultsChan <- map[string]interface{}{

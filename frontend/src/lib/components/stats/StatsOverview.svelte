@@ -31,10 +31,14 @@
 		class="relative overflow-hidden rounded-2xl border border-blue-500/20 bg-blue-500/5 p-5 transition-all hover:bg-blue-500/10"
 	>
 		<div class="mb-4 flex items-center justify-between">
-			<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/20 text-blue-500">
+			<div
+				class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/20 text-blue-500"
+			>
 				<BarChart3 class="h-5 w-5" />
 			</div>
-			<div class="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-blue-500/70">
+			<div
+				class="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-blue-500/70"
+			>
 				<TrendingUp class="h-3 w-3" />
 				Live
 			</div>
@@ -48,8 +52,9 @@
 			</div>
 		</div>
 		<div class="mt-4 flex items-center gap-2 border-t border-blue-500/10 pt-3">
-			<span class="text-[10px] font-bold text-blue-500/80 uppercase">Daily Average</span>
-			<span class="text-xs font-bold text-text-primary">{safeFixed(stats.requests_per_day, 1)}</span>
+			<span class="text-[10px] font-bold uppercase text-blue-500/80">Daily Average</span>
+			<span class="text-xs font-bold text-text-primary">{safeFixed(stats.requests_per_day, 1)}</span
+			>
 		</div>
 	</div>
 
@@ -73,7 +78,7 @@
 		</div>
 		<div class="mt-4 flex items-center gap-2 border-t border-emerald-500/10 pt-3">
 			<span class="text-xs font-bold text-text-primary">{stats.total_files_uploaded}</span>
-			<span class="text-[10px] font-medium text-text-secondary uppercase"
+			<span class="text-[10px] font-medium uppercase text-text-secondary"
 				>{$t('stats.files')} ({formatBytes(stats.total_files_size_mb * 1024 * 1024)})</span
 			>
 		</div>

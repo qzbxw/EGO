@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Loader2, Zap, Brain, Sparkles } from '@lucide/svelte';
+	import { Loader2, Brain, Sparkles } from '@lucide/svelte';
 	interface Props {
 		size?: 'sm' | 'md' | 'lg' | 'xl';
 		variant?: 'spinner' | 'pulse' | 'dots' | 'brain' | 'sparkle';

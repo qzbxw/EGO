@@ -73,7 +73,7 @@ func main() {
 	go startOrphanedFileCleanupRoutine(ctx, db, s3Service, cfg)
 	go startKeepAlive(ctx, cfg)
 	go telemetry.InitializeBot(db)
-	
+
 	// Start Profile Summarizer
 	profileSummarizer := engine.NewProfileSummarizer(db, processor.GetLLMClient())
 	go profileSummarizer.Start(ctx)

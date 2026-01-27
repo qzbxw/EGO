@@ -1,3 +1,4 @@
+import { SvelteSet } from 'svelte/reactivity';
 import type { ChatSession } from '$lib/types';
 import { chatStore, setNotificationCallbacks } from './chat.svelte';
 
@@ -14,8 +15,8 @@ export const getSessionById = chatStore.getSessionById.bind(chatStore);
 type Subscriber<T> = (value: T) => void;
 type Unsubscriber = () => void;
 
-const sessionsSubscribers = new Set<Subscriber<ChatSession[]>>();
-const isLoadingSubscribers = new Set<Subscriber<boolean>>();
+const sessionsSubscribers = new SvelteSet<Subscriber<ChatSession[]>>();
+const isLoadingSubscribers = new SvelteSet<Subscriber<boolean>>();
 
 // Notify functions to be called when values change
 function notifySessionsChanged() {

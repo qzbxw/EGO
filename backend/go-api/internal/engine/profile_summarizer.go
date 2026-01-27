@@ -98,7 +98,7 @@ func (ps *ProfileSummarizer) processUser(ctx context.Context, userID int) error 
 
 	if len(logs) == 0 {
 		// No new logs, just update the timestamp so we don't check again immediately?
-		// Actually GetUsersNeedingSummary checks for logs > last_summary_at, so this shouldn't happen 
+		// Actually GetUsersNeedingSummary checks for logs > last_summary_at, so this shouldn't happen
 		// unless there's a race or I misunderstood the query.
 		// If it happens, just update timestamp to now.
 		return ps.db.UpdateProfileSummary(userID, currentProfile)

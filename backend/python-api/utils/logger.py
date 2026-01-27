@@ -1,14 +1,14 @@
 # -----------------------------------------------------------------------------
 # --- Library Imports
 # -----------------------------------------------------------------------------
+import json
 import logging
 import logging.handlers
 import os
 import sys
-import json
 import traceback
 from datetime import datetime
-from typing import Dict, Any
+from typing import Any
 
 # --- External dependency for remote logging to BetterStack.
 # --- This is wrapped in a try-except block to prevent the application from
@@ -28,23 +28,24 @@ else:
 # --- JSON Formatter
 # -----------------------------------------------------------------------------
 
+
 class JSONFormatter(logging.Formatter):
     """
     Custom formatter that outputs log records as JSON for structured logging.
     This makes logs machine-readable and easier to parse by log aggregation tools.
     """
-    
+
     def format(self, record: logging.LogRecord) -> str:
         """
         Format the log record as a JSON string.
-        
+
         Args:
             record: The log record to format.
-            
+
         Returns:
             A JSON-formatted string containing the log data.
         """
-        log_data: Dict[str, Any] = {
+        log_data: dict[str, Any] = {
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "level": record.levelname,
             "logger": record.name,
@@ -53,25 +54,26 @@ class JSONFormatter(logging.Formatter):
             "function": record.funcName,
             "line": record.lineno,
         }
-        
+
         # Add exception info if present
         if record.exc_info:
             log_data["exception"] = {
                 "type": record.exc_info[0].__name__ if record.exc_info[0] else None,
                 "message": str(record.exc_info[1]) if record.exc_info[1] else None,
-                "traceback": traceback.format_exception(*record.exc_info)
+                "traceback": traceback.format_exception(*record.exc_info),
             }
-        
+
         # Add extra fields if they exist
         if hasattr(record, "extra_data"):
             log_data["extra"] = record.extra_data
-        
+
         return json.dumps(log_data, ensure_ascii=False)
 
 
 # -----------------------------------------------------------------------------
 # --- Core Functions
 # -----------------------------------------------------------------------------
+
 
 def setup_logging():
     """
@@ -93,16 +95,17 @@ def setup_logging():
     # --- Determine the logging level from environment variables, with a safe default.
     log_level_name = os.getenv("LOG_LEVEL", "INFO").upper()
     log_level = getattr(logging, log_level_name, logging.INFO)
-    
+
     # --- Check if JSON logging is enabled (default: True for production)
     use_json_logging = os.getenv("LOG_FORMAT", "json").lower() == "json"
 
     # --- Define formatters based on configuration
+    log_format: logging.Formatter
     if use_json_logging:
         log_format = JSONFormatter()
     else:
         log_format = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)'
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)"
         )
 
     # --- Get the root logger, which is the top-level logger for the application.
@@ -130,7 +133,9 @@ def setup_logging():
                 logging.error(f"Failed to initialize BetterStack logging: {e}", exc_info=True)
         else:
             # --- Inform the user if the token is set but the library is missing.
-            logging.warning("LOGTAIL_SOURCE_TOKEN is set, but the 'logtail-handler' library is not installed. Remote logging is disabled.")
+            logging.warning(
+                "LOGTAIL_SOURCE_TOKEN is set, but the 'logtail-handler' library is not installed. Remote logging is disabled."
+            )
     else:
         logging.info("Logging to BetterStack is disabled (LOGTAIL_SOURCE_TOKEN not set).")
 
@@ -142,7 +147,7 @@ def setup_logging():
         root_logger.addHandler(console_handler)
         log_format_type = "JSON" if use_json_logging else "text"
         logging.info(f"Logging to console is enabled (format: {log_format_type}).")
-    
+
     # --- If no handlers were configured at all, add a basic console logger
     # --- to ensure that critical messages are not lost.
     if not root_logger.hasHandlers():

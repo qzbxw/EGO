@@ -1,0 +1,10 @@
+# Additional Ruff configuration
+extend = "pyproject.toml"
+
+# Exclude patterns
+extend-exclude = [
+    ".venv",
+    "venv",
+    "__pycache__",
+    "*.pyc",
+]

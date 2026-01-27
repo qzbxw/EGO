@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { _ } from 'svelte-i18n';
 	import { getAppLogo } from '$lib/config';
 	import { preferencesStore } from '$lib/stores/preferences.svelte.ts';
 </script>
@@ -25,7 +24,7 @@
 		</p>
 		<div class="mt-8 flex items-center gap-4">
 			<button
-				onclick={() => goto('/chat/new', { replaceState: true })}
+				onclick={() => void goto('/chat/new', { replaceState: true })}
 				class="rounded-lg bg-accent px-5 py-2.5 font-semibold text-white shadow-lg transition-colors hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-accent focus:ring-opacity-50"
 			>
 				Новый чат

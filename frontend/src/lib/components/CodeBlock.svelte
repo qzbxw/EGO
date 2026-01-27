@@ -2,7 +2,7 @@
 	import { Copy, Check, Maximize2, Play } from '@lucide/svelte';
 	import { createEventDispatcher } from 'svelte';
 	import { canvasStore } from '$lib/stores/canvas.svelte.ts';
-	
+
 	interface Props {
 		code: string;
 		language?: string;
@@ -10,7 +10,7 @@
 	}
 	let { code, language = '', inCanvas = false }: Props = $props();
 	let copied = $state(false);
-	let copyTimeout: number;
+	let copyTimeout: number | undefined = $state();
 	const dispatch = createEventDispatcher();
 
 	let isPreviewable = $derived(['html', 'svg'].includes(language.toLowerCase()));
@@ -25,8 +25,9 @@
 			copied = true;
 			dispatch('copy', { success: true });
 			if (copyTimeout) clearTimeout(copyTimeout);
-			copyTimeout = setTimeout(() => {
+			copyTimeout = window.setTimeout(() => {
 				copied = false;
+				copyTimeout = undefined;
 			}, 2000);
 		} catch (err) {
 			console.error('Failed to copy code:', err);
@@ -66,8 +67,10 @@
 
 <div class="code-wrapper group" data-language={getLanguageDisplay(language)}>
 	<pre><code class="hljs language-{language}">{code}</code></pre>
-	
-	<div class="absolute top-3 right-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+
+	<div
+		class="absolute right-3 top-3 z-10 flex items-center gap-2 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+	>
 		{#if !inCanvas}
 			<button
 				class="action-button flex items-center gap-2 pr-3"
@@ -105,7 +108,7 @@
 		margin: 1rem 0;
 	}
 	/* Removed explicit hover logic for child since we handle it on the container div */
-	
+
 	.action-button {
 		padding: 0.5rem;
 		border-radius: 0.5rem;

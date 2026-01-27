@@ -144,7 +144,11 @@ func (st *requestStats) composeTelemetryMessage(user *models.User, sessionUUID s
 		if len(st.thoughtDurations) > 8 {
 			parts = append(parts, "…")
 		}
-		fmt.Fprintf(&b, "• 🧩 Thinking: `%dms` (%d iters, avg %dms)\n", tThought.Milliseconds(), len(st.thoughtDurations), avg)
+		fmt.Fprintf(&b, "• 🧩 Thinking: `%dms` (%d iters: %s, avg %dms)\n",
+			tThought.Milliseconds(),
+			len(st.thoughtDurations),
+			strings.Join(parts, ","),
+			avg)
 	} else {
 		fmt.Fprintf(&b, "• 🧩 Thinking: `%dms`\n", tThought.Milliseconds())
 	}

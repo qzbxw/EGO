@@ -15,7 +15,9 @@ function writeCache(value: UserSettings | null) {
 	try {
 		if (value) localStorage.setItem(CACHE_KEY, JSON.stringify(value));
 		else localStorage.removeItem(CACHE_KEY);
-	} catch {}
+	} catch (e) {
+		console.error('Failed to write user settings cache:', e);
+	}
 }
 export const userSettingsStore = {
 	get settings() {

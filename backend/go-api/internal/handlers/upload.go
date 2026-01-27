@@ -59,7 +59,7 @@ func (h *UploadHandler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 		head := make([]byte, 512)
 		n, _ := io.ReadFull(file, head)
 		mimeType := http.DetectContentType(head[:n])
-		
+
 		// If detection fails or is generic, trust the header extension or header type
 		if mimeType == "application/octet-stream" {
 			if fileHeader.Header.Get("Content-Type") != "" {

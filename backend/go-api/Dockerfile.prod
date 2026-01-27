@@ -1,18 +1,37 @@
+# syntax=docker/dockerfile:1.4
+
 FROM golang:1.25-alpine AS builder
 WORKDIR /app
-COPY go.mod go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod \
-    go mod download
-COPY . .
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o /app/go-api ./cmd/api
 
+# Copy go mod files for caching
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod,sharing=locked \
+    go mod download
+
+# Copy source code
+COPY . .
+
+# Build with cache
+RUN --mount=type=cache,target=/go/pkg/mod,sharing=locked \
+    --mount=type=cache,target=/root/.cache/go-build,sharing=locked \
+    CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags="-w -s" -o /app/go-api ./cmd/api
+
+# Runtime stage
 FROM alpine:latest
-RUN apk --no-cache add ca-certificates tzdata
+RUN apk --no-cache add ca-certificates tzdata && \
+    addgroup -g 1001 -S golang && \
+    adduser -S golang -u 1001
+
 WORKDIR /app
-COPY --from=builder /app/go-api .
-COPY --from=builder /app/migrations ./migrations
-RUN mkdir -p /app/uploads
+
+# Copy binary and migrations
+COPY --from=builder --chown=golang:golang /app/go-api .
+COPY --from=builder --chown=golang:golang /app/migrations ./migrations
+
+# Create uploads directory
+RUN mkdir -p /app/uploads && chown golang:golang /app/uploads
+
+USER golang
+
 EXPOSE 8080
 CMD ["./go-api"]

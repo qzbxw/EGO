@@ -88,7 +88,7 @@
 			} else {
 				toast.error($_('settings.validate_error'));
 			}
-		} catch (e: unknown) {
+		} catch {
 			toast.error($_('settings.validate_failed'));
 		} finally {
 			isValidating = false;
@@ -113,7 +113,7 @@
 				api_key: selectedProvider === 'ego' ? '' : apiKey
 			});
 			toast.success($_('settings.save_success'));
-		} catch (e: unknown) {
+		} catch {
 			toast.error($_('settings.save_failed'));
 		} finally {
 			isLoading = false;
@@ -161,7 +161,7 @@
 				await api.updateUserSettings({ llm_provider: 'ego', api_key: '', llm_model: '' });
 				updateUserSettings({ llm_provider: 'ego', llm_model: '', api_key: '' });
 				toast.success($_('settings.save_success'));
-			} catch (e: unknown) {
+			} catch {
 				toast.error($_('settings.save_failed'));
 			} finally {
 				isLoading = false;
@@ -199,7 +199,10 @@
 		{#if selectedProvider !== 'ego'}
 			<div class="space-y-4 pt-2" in:slide={{ duration: 300 }}>
 				<div class="space-y-2">
-					<label for="api_key" class="flex items-center gap-2 text-sm font-medium text-text-primary">
+					<label
+						for="api_key"
+						class="flex items-center gap-2 text-sm font-medium text-text-primary"
+					>
 						<Key class="h-3.5 w-3.5 text-accent" />
 						{$_('settings.api_key')}
 					</label>
@@ -254,7 +257,7 @@
 						</button>
 						<button
 							onclick={handleSave}
-							class="flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-xs font-semibold text-white transition-all hover:bg-accent-hover shadow-lg shadow-accent/20 disabled:opacity-50"
+							class="flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-accent/20 transition-all hover:bg-accent-hover disabled:opacity-50"
 							disabled={isLoading ||
 								isValidating ||
 								(selectedProvider !== 'ego' && (!apiKey || !selectedModel))}

@@ -86,7 +86,7 @@
 		letter-spacing: -0.011em;
 	}
 	.prose blockquote {
-		@apply my-4 border-l-4 border-accent/30 bg-accent/5 px-4 py-2 italic text-text-primary/80 rounded-r-lg;
+		@apply my-4 rounded-r-lg border-l-4 border-accent/30 bg-accent/5 px-4 py-2 italic text-text-primary/80;
 		backdrop-filter: blur(4px);
 	}
 	.theme-light .prose blockquote {
@@ -104,7 +104,7 @@
 		@apply rounded-md bg-tertiary px-1.5 py-0.5 font-mono font-medium text-accent;
 	}
 	.theme-light .prose :where(code):not(:where(pre *)) {
-		@apply bg-tertiary text-accent border border-tertiary;
+		@apply border border-tertiary bg-tertiary text-accent;
 	}
 
 	.prose .code-wrapper {
@@ -342,7 +342,12 @@
 
 	.bg-circle {
 		@apply absolute h-[50vmax] w-[50vmax] rounded-full;
-		background: radial-gradient(circle, rgba(109, 40, 217, 0.4) 0%, rgba(76, 29, 149, 0.2) 35%, transparent 70%);
+		background: radial-gradient(
+			circle,
+			rgba(109, 40, 217, 0.4) 0%,
+			rgba(76, 29, 149, 0.2) 35%,
+			transparent 70%
+		);
 		filter: blur(80px);
 		opacity: 0.4;
 		animation-name: ambient-drift;
@@ -355,7 +360,12 @@
 	}
 
 	.bg-circle.secondary {
-		background: radial-gradient(circle, rgba(79, 70, 229, 0.3) 0%, rgba(55, 48, 163, 0.15) 35%, transparent 70%);
+		background: radial-gradient(
+			circle,
+			rgba(79, 70, 229, 0.3) 0%,
+			rgba(55, 48, 163, 0.15) 35%,
+			transparent 70%
+		);
 		animation-name: ambient-drift-2;
 		animation-duration: var(--dur, 45s);
 		animation-direction: alternate;
@@ -515,8 +525,13 @@
 	}
 
 	@keyframes cursor-blink {
-		0%, 100% { opacity: 1; }
-		50% { opacity: 0.2; }
+		0%,
+		100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.2;
+		}
 	}
 
 	.streaming-text-char {

@@ -1,8 +1,35 @@
+export interface ToolAction {
+	callId: string;
+	toolName: string;
+	status: 'running' | 'completed' | 'failed';
+	progress?: string;
+	header?: string;
+}
+
+export interface StreamStoreState {
+	thoughtHeader: string;
+	thoughts: ThoughtStep[];
+	activeTools: ToolAction[];
+	textStream: string;
+	isDone: boolean;
+	error: string;
+	sessionUUID: string | null;
+	newlyCreatedSessionUUID: string | null;
+	lastUserMessage: { temp_id: number; log_id: number } | null;
+	wasCancelled: boolean;
+	currentLogId: number | null;
+	isRecovering: boolean;
+	recoveredFromRest: boolean;
+	lastSeqNumber: number;
+	activePlan: SessionPlan | null;
+}
+
 export interface User {
 	id: number;
 	username: string;
 	role: 'user';
 	created_at: string;
+	llm_provider?: string;
 }
 export interface AuthResponse {
 	access_token: string;
@@ -25,15 +52,37 @@ export interface HistoryLog {
 	id: number;
 	user_query: string;
 	final_response: string | null;
-	thoughts?: any[];
+	thoughts?: BackendThoughtStep[];
 	timestamp: string;
 	attachments: FileAttachment[];
 }
+
+export interface BackendThoughtStep extends ThoughtStep {
+	thoughts_header?: string;
+	tool_reasoning?: string;
+	thoughts?: string;
+	tool_name?: string;
+}
+
+export interface ThoughtStep {
+	id: string;
+	type: 'thought' | 'tool';
+	header: string;
+	content?: string;
+	reasoning?: string;
+	status?: 'running' | 'completed' | 'failed';
+	toolName?: string;
+	progress?: string;
+	confidence_score?: number;
+	self_critique?: string;
+	plan_status?: string;
+}
+
 export interface ChatMessage {
 	id: number;
 	author: 'user' | 'ego';
 	text: string;
-	thoughts?: any[]; // Chain of thought steps
+	thoughts?: ThoughtStep[]; // Chain of thought steps
 	isThinking?: boolean;
 	isStreaming?: boolean;
 	isCancelled?: boolean;
@@ -99,6 +148,7 @@ export interface WsToolProgressEvent extends WsEventBase {
 		tool_name: string;
 		progress: string;
 		header: string;
+		call_id?: string;
 	};
 }
 export interface WsChunkEvent extends WsEventBase {
@@ -159,6 +209,45 @@ export interface WsPlanUpdatedEvent extends WsEventBase {
 	data: SessionPlan;
 }
 
+export interface WsThoughtEvent extends WsEventBase {
+	type: 'thought';
+	data: {
+		thoughts?: string;
+		content?: string;
+		tool_reasoning?: string;
+		thoughts_header?: string;
+		confidence_score?: number;
+		self_critique?: string;
+		plan_status?: string;
+	};
+}
+
+export interface WsToolCallEvent extends WsEventBase {
+	type: 'tool_call';
+	data: {
+		tool_name: string;
+		call_id?: string;
+	};
+}
+
+export interface WsToolOutputEvent extends WsEventBase {
+	type: 'tool_output';
+	data: {
+		tool_name: string;
+		call_id?: string;
+		output: string;
+	};
+}
+
+export interface WsToolErrorEvent extends WsEventBase {
+	type: 'tool_error';
+	data: {
+		tool_name: string;
+		call_id?: string;
+		error: string;
+	};
+}
+
 export type WsEvent =
 	| WsErrorEvent
 	| WsPongEvent
@@ -172,7 +261,11 @@ export type WsEvent =
 	| WsDoneEvent
 	| WsProcessResumedEvent
 	| WsTextStreamResetEvent
-	| WsPlanUpdatedEvent;
+	| WsPlanUpdatedEvent
+	| WsThoughtEvent
+	| WsToolCallEvent
+	| WsToolOutputEvent
+	| WsToolErrorEvent;
 
 export interface PublicStats {
 	total_tokens: number;

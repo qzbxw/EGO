@@ -8,11 +8,7 @@
 
 	let isMaintenanceMode = $derived(maintenanceStore.status.maintenance);
 	let statusText = $derived(isMaintenanceMode ? 'MAINTENANCE' : 'SYSTEM ACTIVE');
-	let subtitle = $derived(
-		isMaintenanceMode
-			? "We'll be back shortly"
-			: 'Synchronizing...'
-	);
+	let subtitle = $derived(isMaintenanceMode ? "We'll be back shortly" : 'Synchronizing...');
 	let inputToken = $state('');
 	let tokenError = $state<string | null>(null);
 	let isSubmitting = $state(false);
@@ -28,7 +24,7 @@
 		isSubmitting = false;
 
 		if (ok) {
-			goto('/');
+			void goto('/');
 		} else {
 			tokenError = 'UNAUTHORIZED_ACCESS';
 		}
@@ -40,7 +36,7 @@
 			await maintenanceStore.checkStatus();
 			if (!maintenanceStore.isMaintenanceActive) {
 				clearInterval(interval);
-				goto('/');
+				void goto('/');
 			}
 		}, 10000);
 
@@ -76,7 +72,7 @@
 					class:bg-green-500={!isMaintenanceMode}
 					class:animate-pulse={isMaintenanceMode}
 				></div>
-				<span class="text-[10px] font-black tracking-[0.3em] uppercase">EGO_v2</span>
+				<span class="text-[10px] font-black uppercase tracking-[0.3em]">EGO_v2</span>
 			</div>
 		</div>
 		<button
@@ -107,14 +103,14 @@
 			<!-- Status Info -->
 			<div class="mb-10 text-center">
 				<h1
-					class="mb-2 text-4xl font-bold tracking-tight sm:text-6xl uppercase"
+					class="mb-2 text-4xl font-bold uppercase tracking-tight sm:text-6xl"
 					class:logo-malfunction={isMaintenanceMode}
 					class:text-red-500={isMaintenanceMode}
 					class:text-green-500={!isMaintenanceMode}
 				>
 					{statusText}
 				</h1>
-				<p class="text-text-secondary text-xs font-medium tracking-widest uppercase opacity-60">
+				<p class="text-xs font-medium uppercase tracking-widest text-text-secondary opacity-60">
 					{subtitle}
 				</p>
 			</div>
@@ -140,14 +136,17 @@
 
 					<button
 						type="submit"
-						class="btn-gradient px-6 py-3 text-xs font-bold tracking-widest uppercase disabled:opacity-30"
+						class="btn-gradient px-6 py-3 text-xs font-bold uppercase tracking-widest disabled:opacity-30"
 						disabled={isSubmitting || !inputToken}
 					>
 						{isSubmitting ? 'Verifying...' : 'Unlock'}
 					</button>
 
 					{#if tokenError}
-						<p class="text-center text-[10px] font-bold text-red-500 uppercase tracking-widest" in:fade>
+						<p
+							class="text-center text-[10px] font-bold uppercase tracking-widest text-red-500"
+							in:fade
+						>
 							Invalid key
 						</p>
 					{/if}
@@ -170,11 +169,31 @@
 	}
 
 	@keyframes logo-glitch {
-		0%, 85%, 100% { transform: translate(0); filter: none; }
-		86% { transform: translate(-5px, 2px); filter: hue-rotate(90deg) brightness(1.3); clip-path: inset(10% 0 40% 0); }
-		87% { transform: translate(5px, -2px); filter: hue-rotate(-90deg) saturate(3); clip-path: inset(40% 0 10% 0); }
-		88% { transform: translate(-2px, 5px); filter: contrast(2); }
-		89% { transform: translate(0); filter: none; clip-path: none; }
+		0%,
+		85%,
+		100% {
+			transform: translate(0);
+			filter: none;
+		}
+		86% {
+			transform: translate(-5px, 2px);
+			filter: hue-rotate(90deg) brightness(1.3);
+			clip-path: inset(10% 0 40% 0);
+		}
+		87% {
+			transform: translate(5px, -2px);
+			filter: hue-rotate(-90deg) saturate(3);
+			clip-path: inset(40% 0 10% 0);
+		}
+		88% {
+			transform: translate(-2px, 5px);
+			filter: contrast(2);
+		}
+		89% {
+			transform: translate(0);
+			filter: none;
+			clip-path: none;
+		}
 	}
 
 	.logo-malfunction {
@@ -183,20 +202,54 @@
 	}
 
 	@keyframes glitch-malfunction {
-		0%, 86%, 100% { transform: translate(0); filter: none; opacity: 1; text-shadow: none; }
-		87% { transform: translate(-2px, 1px); filter: hue-rotate(90deg) saturate(1.5); clip-path: inset(10% 0 40% 0); color: #ff003c; opacity: 0.9; text-shadow: 2px 0 #00fff2; }
-		88% { transform: translate(2px, -1px); filter: hue-rotate(-90deg) contrast(2); clip-path: inset(40% 0 10% 0); color: #ff003c; opacity: 0.8; text-shadow: -2px 0 #00fff2; }
-		89% { transform: translate(0); filter: none; clip-path: none; opacity: 1; text-shadow: none; }
-		90% { transform: translate(-3px, 2px); filter: hue-rotate(45deg); clip-path: inset(5% 0 60% 0); color: #ff003c; opacity: 0.7; }
-		91% { transform: translate(0); filter: none; clip-path: none; opacity: 1; }
+		0%,
+		86%,
+		100% {
+			transform: translate(0);
+			filter: none;
+			opacity: 1;
+			text-shadow: none;
+		}
+		87% {
+			transform: translate(-2px, 1px);
+			filter: hue-rotate(90deg) saturate(1.5);
+			clip-path: inset(10% 0 40% 0);
+			color: #ff003c;
+			opacity: 0.9;
+			text-shadow: 2px 0 #00fff2;
+		}
+		88% {
+			transform: translate(2px, -1px);
+			filter: hue-rotate(-90deg) contrast(2);
+			clip-path: inset(40% 0 10% 0);
+			color: #ff003c;
+			opacity: 0.8;
+			text-shadow: -2px 0 #00fff2;
+		}
+		89% {
+			transform: translate(0);
+			filter: none;
+			clip-path: none;
+			opacity: 1;
+			text-shadow: none;
+		}
+		90% {
+			transform: translate(-3px, 2px);
+			filter: hue-rotate(45deg);
+			clip-path: inset(5% 0 60% 0);
+			color: #ff003c;
+			opacity: 0.7;
+		}
+		91% {
+			transform: translate(0);
+			filter: none;
+			clip-path: none;
+			opacity: 1;
+		}
 	}
 
 	.scanlines {
-		background: linear-gradient(
-			to bottom,
-			rgba(255, 255, 255, 0) 50%,
-			rgba(0, 0, 0, 0.1) 50%
-		);
+		background: linear-gradient(to bottom, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
 		background-size: 100% 4px;
 	}
 
@@ -204,6 +257,10 @@
 		background-color: #000;
 	}
 
-	.theme-light { background-color: #f8fafc; }
-	.theme-dark { background-color: #000; }
+	.theme-light {
+		background-color: #f8fafc;
+	}
+	.theme-dark {
+		background-color: #000;
+	}
 </style>

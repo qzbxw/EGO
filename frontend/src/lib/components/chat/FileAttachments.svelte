@@ -1,16 +1,17 @@
+<script module lang="ts">
+	export interface ExtendedFile extends File {
+		uploadStatus?: 'pending' | 'uploading' | 'done' | 'error';
+		uploadId?: string;
+		previewUrl?: string;
+	}
+</script>
+
 <script lang="ts">
-	import { Paperclip, X, Loader2 } from '@lucide/svelte';
+	import { Paperclip } from '@lucide/svelte';
 	import { _ } from 'svelte-i18n';
 	import { toast } from 'svelte-sonner';
 	import { api } from '$lib/api';
 	import { chatStore } from '$lib/stores/chat.svelte';
-
-	// Extend File with status tracking
-	export interface ExtendedFile extends File {
-		uploadStatus?: 'pending' | 'uploading' | 'done' | 'error';
-		uploadId?: string;
-		previewUrl?: string; // Cache the preview URL
-	}
 
 	let { attachedFiles = $bindable([]) }: { attachedFiles: ExtendedFile[] } = $props();
 
@@ -82,7 +83,10 @@
 				formData.append('session_uuid', sessionId);
 			}
 
-			const res = await api.postMultipart<{ files: { upload_id: string; file_name: string }[] }>('/upload', formData);
+			const res = await api.postMultipart<{ files: { upload_id: string; file_name: string }[] }>(
+				'/upload',
+				formData
+			);
 
 			if (res && res.files && res.files.length > 0) {
 				file.uploadId = res.files[0].upload_id;
@@ -123,10 +127,5 @@
 >
 	<Paperclip class="h-5 w-5 text-text-secondary transition-colors group-hover:text-text-primary" />
 	<!-- Removed accept attribute to allow all files -->
-	<input
-		type="file"
-		multiple
-		onchange={handleFileSelect}
-		class="hidden"
-	/>
+	<input type="file" multiple onchange={handleFileSelect} class="hidden" />
 </label>

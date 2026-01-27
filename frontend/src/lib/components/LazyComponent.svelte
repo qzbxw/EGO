@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, type Component } from 'svelte';
 	import { createObserver, lazyLoadConfig } from '$lib/utils/intersectionObserver';
 
 	let {
@@ -12,18 +12,17 @@
 		preload = false,
 		...restProps
 	}: {
-		component?: any;
-		importFn?: () => Promise<{ default: any }>;
-		fallback?: any;
-		error?: any;
+		component?: Component;
+		importFn?: () => Promise<{ default: Component }>;
+		fallback?: Component;
+		error?: Component;
 		delay?: number;
 		eagerLoad?: boolean;
 		preload?: boolean;
-		[key: string]: any;
+		[key: string]: unknown;
 	} = $props();
 
 	let loaded = $state(false);
-	let visible = $state(eagerLoad);
 	let loadError = $state<Error | null>(null);
 	let container: HTMLDivElement | undefined = $state();
 	let loadingComponent = $state(true);

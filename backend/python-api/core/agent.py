@@ -1,12 +1,14 @@
-# ----------------------------------------------------------------------------- 
+# -----------------------------------------------------------------------------
 # --- Library Imports
-# ----------------------------------------------------------------------------- 
-import os
+# -----------------------------------------------------------------------------
 import json
 import logging
-from typing import List, Dict, Any, AsyncGenerator, Optional, Tuple, Union
-from pydantic import BaseModel, Field
+import os
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
+from typing import Any, ClassVar
+
+from pydantic import BaseModel, Field
 
 # --- Google GenAI specific imports with exception handling
 # The google-generativeai library is used for interacting with the Gemini models.
@@ -18,31 +20,34 @@ try:
 except ImportError:
     # This provides a fallback for environments where the library might not be installed,
     # preventing an immediate crash on import.
-    logging.error("Google GenAI library not found. Please install it using 'pip install google-genai'")
+    logging.error(
+        "Google GenAI library not found. Please install it using 'pip install google-genai'"
+    )
     genai = None
     google_exceptions = None
     genai_errors = None
 
-# ----------------------------------------------------------------------------- 
+# -----------------------------------------------------------------------------
 # --- Local Module Imports
-# ----------------------------------------------------------------------------- 
+# -----------------------------------------------------------------------------
 # These imports bring in project-specific components like prompts and tool definitions.
+from .llm_backend import LLMProvider
 from .prompts import (
-    SEQUENTIAL_THINKING_PROMPT_EN_DEFAULT,
-    SEQUENTIAL_THINKING_PROMPT_EN_DEEPER,
-    SEQUENTIAL_THINKING_PROMPT_EN_RESEARCH,
-    SEQUENTIAL_THINKING_PROMPT_EN_AGENT,
-    FINAL_SYNTHESIS_PROMPT_EN_DEFAULT,
-    FINAL_SYNTHESIS_PROMPT_EN_DEEPER,
-    FINAL_SYNTHESIS_PROMPT_EN_RESEARCH,
     FINAL_SYNTHESIS_PROMPT_EN_AGENT,
+    FINAL_SYNTHESIS_PROMPT_EN_DEEPER,
+    FINAL_SYNTHESIS_PROMPT_EN_DEFAULT,
+    FINAL_SYNTHESIS_PROMPT_EN_RESEARCH,
+    SEQUENTIAL_THINKING_PROMPT_EN_AGENT,
+    SEQUENTIAL_THINKING_PROMPT_EN_DEEPER,
+    SEQUENTIAL_THINKING_PROMPT_EN_DEFAULT,
+    SEQUENTIAL_THINKING_PROMPT_EN_RESEARCH,
 )
 from .tools import Tool
-from .llm_backend import LLMProvider
 
-# ----------------------------------------------------------------------------- 
+# -----------------------------------------------------------------------------
 # --- Data Structures & Models
-# ----------------------------------------------------------------------------- 
+# -----------------------------------------------------------------------------
+
 
 @dataclass
 class ModeConfig:
@@ -57,6 +62,7 @@ class ModeConfig:
         thinking_prompt (str): The system prompt for the reasoning/thought generation phase.
         synthesis_prompt (str): The system prompt for the final response generation phase.
     """
+
     model_name: str
     thinking_prompt: str
     synthesis_prompt: str
@@ -69,8 +75,13 @@ class ToolCall(BaseModel):
     This Pydantic model is used to validate the structure of the JSON output
     from the LLM when it decides to use a tool.
     """
-    tool_name: str = Field(description="Name of the tool to be called, e.g., 'EgoSearch' or 'EgoWiki'")
-    tool_query: str = Field(description="The specific query, question, article title or code for the tool")
+
+    tool_name: str = Field(
+        description="Name of the tool to be called, e.g., 'EgoSearch' or 'EgoWiki'"
+    )
+    tool_query: str = Field(
+        description="The specific query, question, article title or code for the tool"
+    )
 
 
 class Thought(BaseModel):
@@ -81,19 +92,40 @@ class Thought(BaseModel):
     its thinking process. It provides a consistent schema for parsing the agent's
     internal state at each step.
     """
-    thoughts: str = Field(description="A detailed thought process, including reasoning, potential code, or problem-solving steps. Include self-critique and certainty inline within the thoughts when relevant.")
-    tool_reasoning: str = Field(description="If tools are needed, explain why, what kind of tool, and the specific task it should perform. If no tool is needed, this field must be an empty string.")
-    tool_calls: List[ToolCall] = Field(description="A list of tool calls to be executed. If no tools are needed, this must be an empty list.")
-    thoughts_header: str = Field(description="A short, general title for the thought, using a verb. For example: 'Searching for information...', 'Analyzing the request...'")
-    nextThoughtNeeded: bool = Field(description="Set to True if another iteration of thinking is required to solve the problem, False if you have enough information to synthesize a final answer.")
-    confidence_score: float = Field(default=0.5, description="A 0.0 to 1.0 score indicating your confidence in the current solution state. Stop only when this is high.")
-    self_critique: str = Field(default="", description="A specific critique of the previous action's result. Did it work? What is missing? Use this to drive the next step.")
-    plan_status: str = Field(default="in_progress", description="The current high-level status of the task: 'planning', 'in_progress', 'verifying', 'completed', 'failed'.")
+
+    thoughts: str = Field(
+        description="A detailed thought process, including reasoning, potential code, or problem-solving steps. Include self-critique and certainty inline within the thoughts when relevant."
+    )
+    tool_reasoning: str = Field(
+        description="If tools are needed, explain why, what kind of tool, and the specific task it should perform. If no tool is needed, this field must be an empty string."
+    )
+    tool_calls: list[ToolCall] = Field(
+        description="A list of tool calls to be executed. If no tools are needed, this must be an empty list."
+    )
+    thoughts_header: str = Field(
+        description="A short, general title for the thought, using a verb. For example: 'Searching for information...', 'Analyzing the request...'"
+    )
+    next_thought_needed: bool = Field(
+        description="Set to True if another iteration of thinking is required to solve the problem, False if you have enough information to synthesize a final answer."
+    )
+    confidence_score: float = Field(
+        default=0.5,
+        description="A 0.0 to 1.0 score indicating your confidence in the current solution state. Stop only when this is high.",
+    )
+    self_critique: str = Field(
+        default="",
+        description="A specific critique of the previous action's result. Did it work? What is missing? Use this to drive the next step.",
+    )
+    plan_status: str = Field(
+        default="in_progress",
+        description="The current high-level status of the task: 'planning', 'in_progress', 'verifying', 'completed', 'failed'.",
+    )
 
 
-# ----------------------------------------------------------------------------- 
+# -----------------------------------------------------------------------------
 # --- Main Agent Class
-# ----------------------------------------------------------------------------- 
+# -----------------------------------------------------------------------------
+
 
 class EGO:
     """
@@ -103,19 +135,20 @@ class EGO:
     It generates "thoughts," uses external tools when necessary, and finally
     synthesizes a comprehensive response based on its findings.
     """
+
     # --- Class Attributes ---
     # Model mappings are loaded from environment variables for flexibility.
     # This allows changing the underlying models without modifying the code.
-    MODEL_MAPPING = {
+    MODEL_MAPPING: ClassVar[dict[str, str]] = {
         "default": os.getenv("GEMINI_DEFAULT_MODEL", "gemini-3-flash-preview"),
         "deeper": os.getenv("GEMINI_DEEPER_MODEL", "gemini-3-flash-preview"),
         "research": os.getenv("GEMINI_RESEARCH_MODEL", "gemini-3-flash-preview"),
         "agent": os.getenv("GEMINI_AGENT_MODEL", "gemini-3-flash-preview"),
     }
     # Defines the maximum number of retries for LLM provider calls.
-    MAX_ATTEMPTS = int(os.getenv("MAX_ATTEMPTS", 3))
+    MAX_ATTEMPTS: ClassVar[int] = int(os.getenv("MAX_ATTEMPTS", 3))
 
-    def __init__(self, backend: LLMProvider, tools: List[Tool]):
+    def __init__(self, backend: LLMProvider, tools: list[Tool]):
         """
         Initializes the EGO agent instance.
 
@@ -127,7 +160,7 @@ class EGO:
         """
         self.backend = backend
         # --- Convert tool list to a dictionary for efficient O(1) name-based lookups.
-        self.tools: Dict[str, Tool] = {tool.name: tool for tool in tools}
+        self.tools: dict[str, Tool] = {tool.name: tool for tool in tools}
 
         # --- A dictionary mapping modes to their specific "thinking" system prompts.
         self.THINKING_PROMPTS = {
@@ -166,7 +199,7 @@ class EGO:
         return ModeConfig(
             model_name=preferred_model,
             thinking_prompt=thinking_prompt,
-            synthesis_prompt=synthesis_prompt
+            synthesis_prompt=synthesis_prompt,
         )
 
     def _wrap_block(self, label: str, content: str) -> str:
@@ -226,9 +259,7 @@ class EGO:
             """
             # --- Use a fast model for this focused task.
             response_text, _ = await self.backend.generate(
-                preferred_model="gemini-2.5-flash",
-                config={},
-                prompt_parts=[prompt]
+                preferred_model="gemini-2.5-flash", config={}, prompt_parts=[prompt]
             )
             return response_text
         except Exception as e:
@@ -236,7 +267,9 @@ class EGO:
             logging.error(f"Error processing file '{file_name}' with LLM: {e}", exc_info=True)
             return f"Error: Could not process the file '{file_name}'. Details: {e}"
 
-    async def _summarize_block(self, model: str, label: str, content: str, target_chars: int = 2000) -> str:
+    async def _summarize_block(
+        self, model: str, label: str, content: str, target_chars: int = 2000
+    ) -> str:
         """
         Asynchronously summarizes a text block to reduce its length.
 
@@ -252,7 +285,7 @@ class EGO:
 
         Returns:
             str: A wrapped block containing the summary or truncated text.
-        
+
         Raises:
             Exception: Re-raises any unexpected exceptions after logging them.
         """
@@ -273,30 +306,34 @@ class EGO:
                 " Use concise Markdown."
             )
             prompt_parts = [f"[BLOCK TO COMPRESS - {label}]\n{content}\n[END BLOCK]"]
-            
+
             # --- Configure the generation for a factual, low-temperature summary.
             config = genai.types.GenerateContentConfig(temperature=0.2)
             config.system_instruction = sys_inst
-            
+
             response_text, _ = await self.backend.generate(
                 preferred_model=model, config=config, prompt_parts=prompt_parts
             )
             compressed = response_text.strip()
-            
+
             # --- Enforce a hard cap if the model exceeded the target length.
             if len(compressed) > target_chars:
                 compressed = compressed[:target_chars]
             return self._wrap_block(label, compressed)
 
-        except (genai_errors.ClientError, genai_errors.ServerError, google_exceptions.GoogleAPICallError) as e:
+        except (
+            genai_errors.ClientError,
+            genai_errors.ServerError,
+            google_exceptions.GoogleAPICallError,
+        ) as e:
             # --- Handle known API errors gracefully with a fallback.
             logging.warning(
                 f"API call for summarization failed for block '{label}'. Error: {e}. "
                 "Falling back to content truncation."
             )
             # --- Fallback: combine the beginning and end of the content.
-            head = content[:target_chars // 2]
-            tail = content[-target_chars // 2:]
+            head = content[: target_chars // 2]
+            tail = content[-target_chars // 2 :]
             fallback = head + "\n...\n[Content Truncated]\n...\n" + tail
             return self._wrap_block(label, fallback)
 
@@ -311,18 +348,18 @@ class EGO:
         mode: str,
         chat_history: str,
         thoughts_history: str,
-        custom_instructions: Optional[str],
-        prompt_parts_from_files: List[Any],
-        model: Optional[str] = None,
+        custom_instructions: str | None,
+        prompt_parts_from_files: list[Any],
+        model: str | None = None,
         vector_memory=None,
-        user_id: Optional[str] = None,
-        session_uuid: Optional[str] = None,
-        current_log_id: Optional[int] = None,
+        user_id: str | None = None,
+        session_uuid: str | None = None,
+        current_log_id: int | None = None,
         memory_enabled: bool = True,
-        current_plan: Optional[Any] = None,
-        current_date: Optional[str] = None,
-        user_profile: Optional[str] = None
-    ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+        current_plan: Any | None = None,
+        current_date: str | None = None,
+        user_profile: str | None = None,
+    ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
         """
         Generates a single structured thought for the agent's reasoning process.
 
@@ -352,11 +389,15 @@ class EGO:
         # --- Inject Current Date ---
         final_custom_instructions = custom_instructions or "None."
         if current_date:
-            final_custom_instructions = f"Current Date: {current_date}.\n{final_custom_instructions}"
-        
+            final_custom_instructions = (
+                f"Current Date: {current_date}.\n{final_custom_instructions}"
+            )
+
         # --- Inject User Profile ---
         if user_profile:
-            final_custom_instructions = f"{final_custom_instructions}\n\n[USER PROFILE CONTEXT]\n{user_profile}"
+            final_custom_instructions = (
+                f"{final_custom_instructions}\n\n[USER PROFILE CONTEXT]\n{user_profile}"
+            )
 
         # --- Isolate and process file parts before constructing the main prompt.
         image_parts = []
@@ -364,16 +405,22 @@ class EGO:
         if prompt_parts_from_files:
             for part in prompt_parts_from_files:
                 # --- This check assumes a custom structure for file parts.
-                if isinstance(part, dict) and part.get('type') == 'file':
-                    result = await self._process_file_with_llm(part['content'], part['name'], query)
+                if isinstance(part, dict) and part.get("type") == "file":
+                    result = await self._process_file_with_llm(part["content"], part["name"], query)
                     file_processing_results.append(result)
                 else:
                     image_parts.append(part)
 
         # --- Append file processing results to the thoughts history.
         if file_processing_results:
-            file_results_block = self._wrap_block("FILE ANALYSIS RESULTS", "\n".join(file_processing_results))
-            thoughts_history = f"{thoughts_history}\n{file_results_block}" if thoughts_history else file_results_block
+            file_results_block = self._wrap_block(
+                "FILE ANALYSIS RESULTS", "\n".join(file_processing_results)
+            )
+            thoughts_history = (
+                f"{thoughts_history}\n{file_results_block}"
+                if thoughts_history
+                else file_results_block
+            )
 
         # --- Inject relevant memory context if available
         retrieved_snippets_text = ""
@@ -382,74 +429,106 @@ class EGO:
                 memory_texts = await vector_memory.search_for_injection(
                     user_id=user_id,
                     query=query,
-                    top_k=5, # Increased for better context
+                    top_k=5,  # Increased for better context
                     session_id=session_uuid,
-                    current_log_id=current_log_id
+                    current_log_id=current_log_id,
                 )
                 if memory_texts:
                     retrieved_snippets_text = "\n".join(memory_texts)
-                    logging.info(f"Injected {len(memory_texts)} memory contexts for user '{user_id}'")
+                    logging.info(
+                        f"Injected {len(memory_texts)} memory contexts for user '{user_id}'"
+                    )
             except Exception as e:
                 logging.warning(f"Failed to inject memory context: {e}")
-        
+
         # --- Format Current Plan if available
         plan_text = ""
         if current_plan:
             try:
                 steps_str = []
                 # Handle both object and dict (Pydantic model vs dict)
-                steps = current_plan.steps if hasattr(current_plan, 'steps') else current_plan.get('steps', [])
-                title = current_plan.title if hasattr(current_plan, 'title') else current_plan.get('title', 'Unknown Plan')
-                
+                steps = (
+                    current_plan.steps
+                    if hasattr(current_plan, "steps")
+                    else current_plan.get("steps", [])
+                )
+                title = (
+                    current_plan.title
+                    if hasattr(current_plan, "title")
+                    else current_plan.get("title", "Unknown Plan")
+                )
+
                 for step in steps:
-                    s_desc = step.description if hasattr(step, 'description') else step.get('description', '')
-                    s_status = step.status if hasattr(step, 'status') else step.get('status', 'pending')
-                    s_order = step.step_order if hasattr(step, 'step_order') else step.get('step_order', 0)
-                    
+                    s_desc = (
+                        step.description
+                        if hasattr(step, "description")
+                        else step.get("description", "")
+                    )
+                    s_status = (
+                        step.status if hasattr(step, "status") else step.get("status", "pending")
+                    )
+                    s_order = (
+                        step.step_order
+                        if hasattr(step, "step_order")
+                        else step.get("step_order", 0)
+                    )
+
                     status_mark = "[ ]"
-                    if s_status == 'completed': status_mark = "[X]"
-                    elif s_status == 'in_progress': status_mark = "[>]"
-                    elif s_status == 'failed': status_mark = "[!]"
-                    elif s_status == 'skipped': status_mark = "[-]"
-                    
+                    if s_status == "completed":
+                        status_mark = "[X]"
+                    elif s_status == "in_progress":
+                        status_mark = "[>]"
+                    elif s_status == "failed":
+                        status_mark = "[!]"
+                    elif s_status == "skipped":
+                        status_mark = "[-]"
+
                     steps_str.append(f"{status_mark} {s_order}. {s_desc} ({s_status})")
-                
+
                 plan_text = f"[ACTIVE MISSION PLAN: {title}]\n" + "\n".join(steps_str)
             except Exception as e:
                 logging.warning(f"Failed to format current plan: {e}")
 
-        if chat_history and not chat_history.strip().startswith('[BEGIN'):
+        if chat_history and not chat_history.strip().startswith("[BEGIN"):
             chat_history = chat_history.strip()
-        
+
         # --- Process thoughts_history: convert to simple text format
         processed_thoughts = ""
         if thoughts_history and thoughts_history.strip() and thoughts_history.strip() != "null":
-            if thoughts_history.strip().startswith('['):
+            if thoughts_history.strip().startswith("["):
                 try:
                     thoughts_json = json.loads(thoughts_history)
-                    logging.info(f"[THOUGHTS PARSING] Parsed {len(thoughts_json)} items from thoughts_history")
+                    logging.info(
+                        f"[THOUGHTS PARSING] Parsed {len(thoughts_json)} items from thoughts_history"
+                    )
                     if isinstance(thoughts_json, list):
                         markdown_thoughts = []
                         for i, item in enumerate(thoughts_json, 1):
                             if isinstance(item, dict):
-                                item_type = item.get('type')
+                                item_type = item.get("type")
                                 # Tool results might have type 'tool_output' or 'tool_error' or just be the result
-                                if item_type in ['tool_output', 'tool_result']:
-                                    tool_name = item.get('tool_name', 'Unknown Tool')
-                                    output = item.get('output', '') or item.get('result', '')
+                                if item_type in ["tool_output", "tool_result"]:
+                                    tool_name = item.get("tool_name", "Unknown Tool")
+                                    output = item.get("output", "") or item.get("result", "")
                                     markdown_thoughts.append(f"### {tool_name} Result\n{output}")
-                                elif item_type == 'tool_error':
-                                    tool_name = item.get('tool_name', 'Unknown Tool')
-                                    error = item.get('error', 'Unknown error')
+                                elif item_type == "tool_error":
+                                    tool_name = item.get("tool_name", "Unknown Tool")
+                                    error = item.get("error", "Unknown error")
                                     markdown_thoughts.append(f"### {tool_name} Error\n{error}")
                                 else:
                                     # Regular thought or unknown type
-                                    content = item.get('content') or item.get('thoughts') or item.get('text', '')
-                                    header = item.get('thoughts_header') or item.get('header', f'Thought {i}')
-                                    reasoning = item.get('tool_reasoning', '')
-                                    confidence = item.get('confidence_score')
-                                    critique = item.get('self_critique')
-                                    status = item.get('plan_status')
+                                    content = (
+                                        item.get("content")
+                                        or item.get("thoughts")
+                                        or item.get("text", "")
+                                    )
+                                    header = item.get("thoughts_header") or item.get(
+                                        "header", f"Thought {i}"
+                                    )
+                                    reasoning = item.get("tool_reasoning", "")
+                                    confidence = item.get("confidence_score")
+                                    critique = item.get("self_critique")
+                                    status = item.get("plan_status")
 
                                     if content:
                                         thought_text = f"### {header}\n{content}"
@@ -457,47 +536,49 @@ class EGO:
                                             thought_text += f"\n\n**Tool Reasoning:** {reasoning}"
                                         if critique:
                                             thought_text += f"\n\n**Self Critique:** {critique}"
-                                        
+
                                         meta_parts = []
                                         if confidence is not None:
                                             meta_parts.append(f"Confidence: {confidence}")
                                         if status:
                                             meta_parts.append(f"Status: {status}")
-                                        
+
                                         if meta_parts:
                                             thought_text += f"\n\n_({' | '.join(meta_parts)})_"
-                                            
+
                                         markdown_thoughts.append(thought_text)
                         processed_thoughts = "\n\n".join(markdown_thoughts)
-                        logging.info(f"[THOUGHTS PARSING] Final processed_thoughts length: {len(processed_thoughts)}")
+                        logging.info(
+                            f"[THOUGHTS PARSING] Final processed_thoughts length: {len(processed_thoughts)}"
+                        )
                 except (json.JSONDecodeError, KeyError) as e:
                     logging.warning(f"Failed to parse thoughts_history as JSON: {e}")
                     processed_thoughts = thoughts_history
             else:
                 processed_thoughts = thoughts_history
-        
-        logging.debug(f"chat_history length: {len(chat_history)}, processed_thoughts length: {len(processed_thoughts)}")
-        
+
+        logging.debug(
+            f"chat_history length: {len(chat_history)}, processed_thoughts length: {len(processed_thoughts)}"
+        )
+
         full_prompt = mode_config.thinking_prompt.format(
             custom_instructions=final_custom_instructions,
             chat_history=chat_history,
             thoughts_history=processed_thoughts,
             user_query=query,
             retrieved_snippets=retrieved_snippets_text,
-            user_profile=user_profile or "Not available yet."
+            user_profile=user_profile or "Not available yet.",
         )
-        
+
         # Inject plan if exists
         if plan_text:
             full_prompt = f"{plan_text}\n\n{full_prompt}"
-        
+
         # Put everything in prompt_parts for better model understanding
-        prompt_parts = list(image_parts or []) + [full_prompt]
+        prompt_parts = [*list(image_parts or []), full_prompt]
         # --- Configure the generation to expect a JSON object matching the Thought schema.
         generation_config = genai.types.GenerateContentConfig(
-            temperature=0.7,
-            response_mime_type="application/json",
-            response_schema=Thought
+            temperature=0.7, response_mime_type="application/json", response_schema=Thought
         )
 
         # --- Main loop for API calls with retry-and-shrink logic.
@@ -506,17 +587,21 @@ class EGO:
                 response_text, usage_metadata = await self.backend.generate(
                     preferred_model=mode_config.model_name,
                     config=generation_config,
-                    prompt_parts=prompt_parts
+                    prompt_parts=prompt_parts,
                 )
-                
+
                 # --- Safely parse the JSON response.
                 try:
                     parsed_json = json.loads(response_text)
                     print(f"[DEBUG] Parsed JSON response: {parsed_json}")
-                    print(f"[DEBUG] thoughts_header in response: {parsed_json.get('thoughts_header', 'NOT FOUND')}")
+                    print(
+                        f"[DEBUG] thoughts_header in response: {parsed_json.get('thoughts_header', 'NOT FOUND')}"
+                    )
                     return parsed_json, usage_metadata
                 except json.JSONDecodeError as je:
-                    logging.warning(f"Non-JSON response for generate_thought. Error: {je}. Text: {response_text[:200]}")
+                    logging.warning(
+                        f"Non-JSON response for generate_thought. Error: {je}. Text: {response_text[:200]}"
+                    )
                     fallback_thought = Thought(
                         thoughts="The model's response was not valid JSON. A safe fallback was generated. Note: provider returned unparsable text.",
                         tool_reasoning="",
@@ -525,15 +610,21 @@ class EGO:
                         nextThoughtNeeded=False,
                         confidence_score=0.0,
                         self_critique="Failed to parse output.",
-                        plan_status="failed"
+                        plan_status="failed",
                     )
                     return json.loads(fallback_thought.model_dump_json()), usage_metadata
 
-            except (genai_errors.ClientError, genai_errors.ServerError, google_exceptions.GoogleAPICallError) as e:
-                logging.warning(f"generate_thought (Attempt {attempt + 1}/{self.MAX_ATTEMPTS}) failed: {e}. Retrying with smaller context...")
+            except (
+                genai_errors.ClientError,
+                genai_errors.ServerError,
+                google_exceptions.GoogleAPICallError,
+            ) as e:
+                logging.warning(
+                    f"generate_thought (Attempt {attempt + 1}/{self.MAX_ATTEMPTS}) failed: {e}. Retrying with smaller context..."
+                )
 
                 if attempt >= self.MAX_ATTEMPTS - 1:
-                    break # Last attempt failed, exit loop.
+                    break  # Last attempt failed, exit loop.
 
                 # --- Context Reduction Logic: Summarize histories to save tokens.
                 chat_summary = await self._summarize_block(
@@ -549,9 +640,9 @@ class EGO:
                     chat_history=chat_summary,
                     thoughts_history=thoughts_summary,
                     user_query=query,
-                    retrieved_snippets=retrieved_snippets_text
+                    retrieved_snippets=retrieved_snippets_text,
                 )
-                
+
                 if plan_text:
                     system_instruction = f"{plan_text}\n\n{system_instruction}"
 
@@ -559,7 +650,9 @@ class EGO:
                 continue
 
         # --- This block is reached only after all retries have failed.
-        logging.error(f"All {self.MAX_ATTEMPTS} attempts to generate a thought failed for query: '{query[:100]}...'")
+        logging.error(
+            f"All {self.MAX_ATTEMPTS} attempts to generate a thought failed for query: '{query[:100]}...'"
+        )
         fallback_thought = Thought(
             thoughts="Failed to generate a thought after multiple context reduction attempts. Likely due to excessive context size or a persistent API error.",
             tool_reasoning="",
@@ -568,10 +661,9 @@ class EGO:
             nextThoughtNeeded=False,
             confidence_score=0.0,
             self_critique="Persistent API failure.",
-            plan_status="failed"
+            plan_status="failed",
         )
         return json.loads(fallback_thought.model_dump_json()), None
-
 
     async def synthesize_stream(
         self,
@@ -579,18 +671,18 @@ class EGO:
         mode: str,
         chat_history: str,
         thoughts_history: str,
-        custom_instructions: Optional[str],
-        prompt_parts_from_files: List[Any],
-        model: Optional[str] = None,
+        custom_instructions: str | None,
+        prompt_parts_from_files: list[Any],
+        model: str | None = None,
         vector_memory=None,
-        user_id: Optional[str] = None,
-        session_uuid: Optional[str] = None,
-        current_log_id: Optional[int] = None,
+        user_id: str | None = None,
+        session_uuid: str | None = None,
+        current_log_id: int | None = None,
         memory_enabled: bool = True,
-        current_plan: Optional[Any] = None,
-        current_date: Optional[str] = None,
-        user_profile: Optional[str] = None
-    ) -> AsyncGenerator[Union[str, Dict[str, Any]], None]:
+        current_plan: Any | None = None,
+        current_date: str | None = None,
+        user_profile: str | None = None,
+    ) -> AsyncGenerator[str | dict[str, Any], None]:
         """
         Generates the final user-facing response as an asynchronous stream.
 
@@ -618,11 +710,15 @@ class EGO:
         # --- Inject Current Date ---
         final_custom_instructions = custom_instructions or "None."
         if current_date:
-            final_custom_instructions = f"Current Date: {current_date}.\n{final_custom_instructions}"
-        
+            final_custom_instructions = (
+                f"Current Date: {current_date}.\n{final_custom_instructions}"
+            )
+
         # --- Inject User Profile ---
         if user_profile:
-            final_custom_instructions = f"{final_custom_instructions}\n\n[USER PROFILE CONTEXT]\n{user_profile}"
+            final_custom_instructions = (
+                f"{final_custom_instructions}\n\n[USER PROFILE CONTEXT]\n{user_profile}"
+            )
 
         # --- Inject relevant memory context if available
         retrieved_snippets_text = ""
@@ -633,11 +729,13 @@ class EGO:
                     query=query,
                     top_k=5,
                     session_id=session_uuid,
-                    current_log_id=current_log_id
+                    current_log_id=current_log_id,
                 )
                 if memory_texts:
                     retrieved_snippets_text = "\n".join(memory_texts)
-                    logging.info(f"Injected {len(memory_texts)} memory contexts for synthesis for user '{user_id}'")
+                    logging.info(
+                        f"Injected {len(memory_texts)} memory contexts for synthesis for user '{user_id}'"
+                    )
             except Exception as e:
                 logging.warning(f"Failed to inject memory context for synthesis: {e}")
 
@@ -647,71 +745,109 @@ class EGO:
             try:
                 steps_str = []
                 # Handle both object and dict
-                steps = current_plan.steps if hasattr(current_plan, 'steps') else current_plan.get('steps', [])
-                title = current_plan.title if hasattr(current_plan, 'title') else current_plan.get('title', 'Unknown Plan')
-                
+                steps = (
+                    current_plan.steps
+                    if hasattr(current_plan, "steps")
+                    else current_plan.get("steps", [])
+                )
+                title = (
+                    current_plan.title
+                    if hasattr(current_plan, "title")
+                    else current_plan.get("title", "Unknown Plan")
+                )
+
                 for step in steps:
-                    s_desc = step.description if hasattr(step, 'description') else step.get('description', '')
-                    s_status = step.status if hasattr(step, 'status') else step.get('status', 'pending')
-                    s_order = step.step_order if hasattr(step, 'step_order') else step.get('step_order', 0)
-                    
+                    s_desc = (
+                        step.description
+                        if hasattr(step, "description")
+                        else step.get("description", "")
+                    )
+                    s_status = (
+                        step.status if hasattr(step, "status") else step.get("status", "pending")
+                    )
+                    s_order = (
+                        step.step_order
+                        if hasattr(step, "step_order")
+                        else step.get("step_order", 0)
+                    )
+
                     status_mark = "[ ]"
-                    if s_status == 'completed': status_mark = "[X]"
-                    elif s_status == 'in_progress': status_mark = "[>]"
-                    elif s_status == 'failed': status_mark = "[!]"
-                    elif s_status == 'skipped': status_mark = "[-]"
-                    
+                    if s_status == "completed":
+                        status_mark = "[X]"
+                    elif s_status == "in_progress":
+                        status_mark = "[>]"
+                    elif s_status == "failed":
+                        status_mark = "[!]"
+                    elif s_status == "skipped":
+                        status_mark = "[-]"
+
                     steps_str.append(f"{status_mark} {s_order}. {s_desc} ({s_status})")
-                
+
                 plan_text = f"[ACTIVE MISSION PLAN: {title}]\n" + "\n".join(steps_str)
             except Exception as e:
                 logging.warning(f"Failed to format current plan for synthesis: {e}")
 
-        if chat_history and not chat_history.strip().startswith('[BEGIN'):
+        if chat_history and not chat_history.strip().startswith("[BEGIN"):
             chat_history = chat_history.strip()
-        
+
         # --- Process thoughts_history: convert to simple text format
         processed_thoughts = ""
         if thoughts_history and thoughts_history.strip() and thoughts_history.strip() != "null":
-            if thoughts_history.strip().startswith('['):
+            if thoughts_history.strip().startswith("["):
                 try:
                     thoughts_json = json.loads(thoughts_history)
-                    logging.info(f"[SYNTHESIS THOUGHTS PARSING] Parsed {len(thoughts_json)} items from thoughts_history")
+                    logging.info(
+                        f"[SYNTHESIS THOUGHTS PARSING] Parsed {len(thoughts_json)} items from thoughts_history"
+                    )
                     if isinstance(thoughts_json, list):
                         markdown_thoughts = []
                         for i, thought in enumerate(thoughts_json, 1):
                             if isinstance(thought, dict):
-                                thought_type = thought.get('type', 'unknown')
-                                logging.debug(f"[SYNTHESIS THOUGHTS PARSING] Item {i}: type={thought_type}, keys={list(thought.keys())}")
+                                thought_type = thought.get("type", "unknown")
+                                logging.debug(
+                                    f"[SYNTHESIS THOUGHTS PARSING] Item {i}: type={thought_type}, keys={list(thought.keys())}"
+                                )
 
                                 # Handle tool outputs specifically
-                                if thought_type == 'tool_output':
-                                    tool_name = thought.get('tool_name', 'Unknown Tool')
-                                    output = thought.get('output', '')
-                                    logging.info(f"[SYNTHESIS THOUGHTS PARSING] Processing tool_output: {tool_name}, output length: {len(str(output))}")
+                                if thought_type == "tool_output":
+                                    tool_name = thought.get("tool_name", "Unknown Tool")
+                                    output = thought.get("output", "")
+                                    logging.info(
+                                        f"[SYNTHESIS THOUGHTS PARSING] Processing tool_output: {tool_name}, output length: {len(str(output))}"
+                                    )
                                     if output:
                                         markdown_thoughts.append(f"## {tool_name} Result\n{output}")
                                     else:
-                                        markdown_thoughts.append(f"## {tool_name} Result\n[Tool returned empty response]")
-                                
+                                        markdown_thoughts.append(
+                                            f"## {tool_name} Result\n[Tool returned empty response]"
+                                        )
+
                                 # Handle tool errors specifically
-                                elif thought_type == 'tool_error':
-                                    tool_name = thought.get('tool_name', 'Unknown Tool')
-                                    error_msg = thought.get('error', 'Unknown error')
-                                    logging.warning(f"[SYNTHESIS THOUGHTS PARSING] Processing tool_error: {tool_name}, error: {error_msg}")
+                                elif thought_type == "tool_error":
+                                    tool_name = thought.get("tool_name", "Unknown Tool")
+                                    error_msg = thought.get("error", "Unknown error")
+                                    logging.warning(
+                                        f"[SYNTHESIS THOUGHTS PARSING] Processing tool_error: {tool_name}, error: {error_msg}"
+                                    )
                                     markdown_thoughts.append(f"## {tool_name} Error\n{error_msg}")
 
                                 # Handle regular thoughts
                                 else:
-                                    content = thought.get('content') or thought.get('thoughts') or thought.get('text', '')
-                                    header = thought.get('thoughts_header', f'Thought {i}')
-                                    reasoning = thought.get('tool_reasoning', '')
-                                    confidence = thought.get('confidence_score')
-                                    critique = thought.get('self_critique')
-                                    status = thought.get('plan_status')
+                                    content = (
+                                        thought.get("content")
+                                        or thought.get("thoughts")
+                                        or thought.get("text", "")
+                                    )
+                                    header = thought.get("thoughts_header", f"Thought {i}")
+                                    reasoning = thought.get("tool_reasoning", "")
+                                    confidence = thought.get("confidence_score")
+                                    critique = thought.get("self_critique")
+                                    status = thought.get("plan_status")
 
                                     if content:
-                                        logging.debug(f"[SYNTHESIS THOUGHTS PARSING] Processing thought: header={header}, content length: {len(str(content))}")
+                                        logging.debug(
+                                            f"[SYNTHESIS THOUGHTS PARSING] Processing thought: header={header}, content length: {len(str(content))}"
+                                        )
                                         thought_text = f"## {header}\n{content}"
                                         if reasoning:
                                             thought_text += f"\n\n**Tool Reasoning:** {reasoning}"
@@ -723,13 +859,15 @@ class EGO:
                                             meta_parts.append(f"Confidence: {confidence}")
                                         if status:
                                             meta_parts.append(f"Status: {status}")
-                                        
+
                                         if meta_parts:
                                             thought_text += f"\n\n_({' | '.join(meta_parts)})_"
 
                                         markdown_thoughts.append(thought_text)
                         processed_thoughts = "\n\n".join(markdown_thoughts)
-                        logging.info(f"[SYNTHESIS THOUGHTS PARSING] Final processed_thoughts length: {len(processed_thoughts)}")
+                        logging.info(
+                            f"[SYNTHESIS THOUGHTS PARSING] Final processed_thoughts length: {len(processed_thoughts)}"
+                        )
                 except (json.JSONDecodeError, KeyError) as e:
                     logging.warning(f"[SYNTHESIS] Failed to parse thoughts_history as JSON: {e}")
                     processed_thoughts = thoughts_history
@@ -741,22 +879,20 @@ class EGO:
             chat_history=chat_history,
             thoughts_history=processed_thoughts,
             user_query=query,
-            retrieved_snippets=retrieved_snippets_text
+            retrieved_snippets=retrieved_snippets_text,
         )
-        
+
         if retrieved_snippets_text:
             full_prompt = f"[RELEVANT PAST CONTEXT]\n{retrieved_snippets_text}\n[END CONTEXT]\n\n{full_prompt}"
-        
+
         # Inject plan
         if plan_text:
             full_prompt = f"{plan_text}\n\n{full_prompt}"
 
         # Put everything in prompt_parts for better model understanding
-        prompt_parts = list(prompt_parts_from_files or []) + [full_prompt]
+        prompt_parts = [*list(prompt_parts_from_files or []), full_prompt]
 
-        generation_config = genai.types.GenerateContentConfig(
-            temperature=0.8
-        )
+        generation_config = genai.types.GenerateContentConfig(temperature=0.8)
 
         # --- Main loop for API calls with retry-and-shrink logic.
         for attempt in range(self.MAX_ATTEMPTS):
@@ -764,17 +900,21 @@ class EGO:
             try:
                 # --- Use 'async for' to iterate over the streamed response chunks.
                 async for chunk in self.backend.generate_synthesis_stream(
-                    model=mode_config.model_name,
-                    config=generation_config,
-                    prompt=prompt_parts
+                    model=mode_config.model_name, config=generation_config, prompt=prompt_parts
                 ):
                     yield chunk
                     has_yielded = True
-                return # --- Gracefully exit after successful stream completion.
+                return  # --- Gracefully exit after successful stream completion.
 
-            except (genai_errors.ClientError, genai_errors.ServerError, google_exceptions.GoogleAPICallError) as e:
-                logging.warning(f"synthesize_stream (Attempt {attempt + 1}/{self.MAX_ATTEMPTS}) failed: {e}. Retrying with smaller context...")
-                
+            except (
+                genai_errors.ClientError,
+                genai_errors.ServerError,
+                google_exceptions.GoogleAPICallError,
+            ) as e:
+                logging.warning(
+                    f"synthesize_stream (Attempt {attempt + 1}/{self.MAX_ATTEMPTS}) failed: {e}. Retrying with smaller context..."
+                )
+
                 if attempt >= self.MAX_ATTEMPTS - 1:
                     break
 
@@ -791,22 +931,24 @@ class EGO:
                 thoughts_summary = await self._summarize_block(
                     mode_config.model_name, "THOUGHTS HISTORY", thoughts_history, target_chars=1600
                 )
-                
+
                 system_instruction = mode_config.synthesis_prompt.format(
                     custom_instructions=final_custom_instructions,
                     chat_history=chat_summary,
                     thoughts_history=thoughts_summary,
                     user_query=query,
-                    retrieved_snippets=retrieved_snippets_text
+                    retrieved_snippets=retrieved_snippets_text,
                 )
-                
+
                 if plan_text:
                     system_instruction = f"{plan_text}\n\n{system_instruction}"
 
                 generation_config.system_instruction = system_instruction
                 continue
-        
+
         # --- This block is reached only after all retries have failed.
-        logging.error(f"All {self.MAX_ATTEMPTS} attempts to synthesize a response failed for query: '{query[:100]}...'")
+        logging.error(
+            f"All {self.MAX_ATTEMPTS} attempts to synthesize a response failed for query: '{query[:100]}...'"
+        )
         yield "\n\n[I apologize, but I encountered a persistent error while trying to generate a response. Please try again later.]"
         return

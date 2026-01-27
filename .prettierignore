@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+package-lock.json
+frontend/package-lock.json
+
+# Build outputs
+frontend/.svelte-kit/
+frontend/build/
+frontend/dist/
+*.min.js
+*.min.css
+
+# Backend
+backend/python-api/.venv/
+backend/python-api/__pycache__/
+backend/python-api/*.pyc
+backend/go-api/vendor/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.github/
+
+# Documentation build
+docs/_build/

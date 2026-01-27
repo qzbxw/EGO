@@ -38,7 +38,7 @@ export async function dynamicImport<T>(
  * Preload модуль без использования
  * Полезно для предварительной загрузки перед использованием
  */
-export async function preloadModule<T>(importFn: () => Promise<{ default: T }>): Promise<void> {
+export async function preloadModule(importFn: () => Promise<unknown>): Promise<void> {
 	try {
 		await importFn();
 	} catch (error) {
@@ -49,7 +49,7 @@ export async function preloadModule<T>(importFn: () => Promise<{ default: T }>):
 /**
  * Кеш для загруженных модулей
  */
-const moduleCache = new Map<string, Promise<any>>();
+const moduleCache = new Map<string, Promise<{ default: unknown }>>();
 
 /**
  * Загружает модуль с кешированием
@@ -59,10 +59,10 @@ export function cachedDynamicImport<T>(
 	importFn: () => Promise<{ default: T }>
 ): Promise<T> {
 	if (!moduleCache.has(key)) {
-		moduleCache.set(key, importFn());
+		moduleCache.set(key, importFn() as Promise<{ default: unknown }>);
 	}
 
-	return moduleCache.get(key)!.then((module) => module.default);
+	return moduleCache.get(key)!.then((module) => module.default as T);
 }
 
 /**
@@ -72,11 +72,8 @@ export function clearModuleCache(): void {
 	moduleCache.clear();
 }
 
-/**
- * Batch preload нескольких модулей параллельно
- */
 export async function preloadBatch(
-	importFns: Array<() => Promise<any>>,
+	importFns: Array<() => Promise<unknown>>,
 	options: { concurrency?: number } = {}
 ): Promise<void> {
 	const { concurrency = 3 } = options;
@@ -97,8 +94,8 @@ export async function preloadBatch(
 export async function smartPreload(
 	modules: Array<{
 		key: string;
-		importFn: () => Promise<any>;
-		priority: 'high' | 'normal' | 'low';
+		importFn: () => Promise<unknown>;
+		priority?: 'high' | 'normal' | 'low';
 	}>
 ): Promise<void> {
 	const grouped = {
@@ -116,8 +113,8 @@ export async function smartPreload(
 	});
 
 	// Low в idle time
-	if ('requestIdleCallback' in window) {
-		requestIdleCallback(() => {
+	if (window.requestIdleCallback) {
+		window.requestIdleCallback(() => {
 			grouped.low.forEach((m) => {
 				preloadModule(m.importFn).catch(() => {});
 			});

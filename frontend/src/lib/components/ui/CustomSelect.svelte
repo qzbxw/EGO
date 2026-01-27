@@ -59,7 +59,7 @@
 			class="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-lg border border-tertiary bg-secondary shadow-xl"
 			transition:slide={{ duration: 150 }}
 		>
-			{#each options as option}
+			{#each options as option (option.value)}
 				<button
 					type="button"
 					class="group flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition-colors hover:bg-tertiary/50 {option.value ===

@@ -11,6 +11,7 @@
 		"strict": true,
 		"allowImportingTsExtensions": true,
 		"noEmit": true,
-		"lib": ["DOM", "DOM.Iterable", "ESNext", "WebWorker"]
+		"lib": ["DOM", "DOM.Iterable", "ESNext", "WebWorker"],
+		"types": ["node"]
 	}
 }

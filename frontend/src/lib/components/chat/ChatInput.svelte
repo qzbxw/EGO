@@ -1,10 +1,9 @@
 <script lang="ts">
-	import { Send, StopCircle, X, Paperclip, ArrowUp } from '@lucide/svelte';
+	import { X, Paperclip, ArrowUp } from '@lucide/svelte';
 	import { _ } from 'svelte-i18n';
 	import { autosize } from '$lib/actions/autosize.ts';
 	import type { ChatMode } from '$lib/types';
 	import { chatStore } from '$lib/stores/chat.svelte';
-	import { preferencesStore } from '$lib/stores/preferences.svelte.ts';
 	import FileAttachments from './FileAttachments.svelte';
 	import ChatModeSelector from './ChatModeSelector.svelte';
 	import { fly, scale } from 'svelte/transition';
@@ -15,7 +14,6 @@
 		attachedFiles = $bindable([]),
 		chatMode = $bindable('default' as ChatMode),
 		isMobile = false,
-		isConnecting = false,
 		streamIsDone = true,
 		editingLogId = null,
 		onsend,
@@ -27,7 +25,6 @@
 		attachedFiles: File[];
 		chatMode: ChatMode;
 		isMobile: boolean;
-		isConnecting: boolean;
 		streamIsDone: boolean;
 		editingLogId: number | null;
 		onsend: () => void;
@@ -41,11 +38,9 @@
 	let fileAttachmentsRef: FileAttachments | undefined = $state();
 	let isFocused = $state(false);
 	let isTyping = $state(false);
-	let typingTimeout: NodeJS.Timeout;
+	let typingTimeout: ReturnType<typeof setTimeout>;
 
-	const isInputDisabled = $derived(
-		!streamIsDone || editingLogId !== null || chatStore.isUILocked
-	);
+	const isInputDisabled = $derived(!streamIsDone || editingLogId !== null || chatStore.isUILocked);
 
 	function handleKeydown(e: KeyboardEvent) {
 		if (!isMobile && e.key === 'Enter' && !e.shiftKey) {
@@ -70,18 +65,20 @@
 </script>
 
 <div
-	class="pointer-events-none fixed bottom-0 z-20 w-full bg-gradient-to-t from-primary via-primary/80 to-transparent pt-32 pb-6 transition-all duration-500"
+	class="pointer-events-none fixed bottom-0 z-20 w-full bg-gradient-to-t from-primary via-primary/80 to-transparent pb-6 pt-32 transition-all duration-500"
 	style="left: var(--sidebar-offset); right: 0; width: auto;"
 >
 	<div class="pointer-events-auto mx-auto w-full max-w-4xl px-4">
 		<div class="flex flex-col gap-3">
-			
 			<!-- File Previews -->
 			{#if attachedFiles.length > 0}
-				<div class="flex flex-wrap items-center gap-2 px-4" transition:fly={{ y: 20, duration: 200 }}>
+				<div
+					class="flex flex-wrap items-center gap-2 px-4"
+					transition:fly={{ y: 20, duration: 200 }}
+				>
 					{#each attachedFiles as file, i (file.name + i)}
 						<div
-							class="group relative flex items-center gap-2.5 overflow-hidden rounded-xl border border-black/5 dark:border-white/10 bg-secondary/80 pl-1.5 pr-2.5 py-1.5 text-xs font-medium text-text-primary shadow-lg backdrop-blur-md transition-all hover:border-red-500/30 hover:bg-red-500/10"
+							class="group relative flex items-center gap-2.5 overflow-hidden rounded-xl border border-black/5 bg-secondary/80 py-1.5 pl-1.5 pr-2.5 text-xs font-medium text-text-primary shadow-lg backdrop-blur-md transition-all hover:border-red-500/30 hover:bg-red-500/10 dark:border-white/10"
 							transition:scale={{ duration: 200, start: 0.9 }}
 						>
 							{#if file.type?.startsWith('image/')}
@@ -110,8 +107,10 @@
 
 			<!-- Input Container -->
 			<div
-				class="relative flex w-full items-end gap-2 rounded-[26px] border border-black/5 dark:border-white/10 bg-secondary/60 p-1.5 backdrop-blur-xl transition-all duration-200 ease-out will-change-transform
-				{isTyping || isFocused ? 'shadow-[0_8px_40px_rgba(var(--color-accent-rgb),0.15)]' : 'shadow-[0_8px_32px_rgba(0,0,0,0.12)]'}
+				class="relative flex w-full items-end gap-2 rounded-[26px] border border-black/5 bg-secondary/60 p-1.5 backdrop-blur-xl transition-all duration-200 ease-out will-change-transform dark:border-white/10
+				{isTyping || isFocused
+					? 'shadow-[0_8px_40px_rgba(var(--color-accent-rgb),0.15)]'
+					: 'shadow-[0_8px_32px_rgba(0,0,0,0.12)]'}
 				{isFocused ? 'ring-2 ring-accent ring-opacity-50' : ''}
 				{isTyping ? 'scale-[1.005] border-accent/30' : ''}"
 				role="region"
@@ -120,11 +119,11 @@
 				ondrop={handleDrop}
 			>
 				<!-- Left Actions -->
-				<div class="flex shrink-0 items-center gap-1 h-10">
+				<div class="flex h-10 shrink-0 items-center gap-1">
 					<div class="relative">
 						<FileAttachments bind:this={fileAttachmentsRef} bind:attachedFiles />
 					</div>
-					<ChatModeSelector bind:chatMode {isMobile} bind:showInputOptions />
+					<ChatModeSelector bind:chatMode bind:showInputOptions />
 				</div>
 
 				<!-- Textarea -->
@@ -134,17 +133,17 @@
 					bind:value={currentInput}
 					onkeydown={handleKeydown}
 					oninput={handleInput}
-					onfocus={() => isFocused = true}
-					onblur={() => isFocused = false}
+					onfocus={() => (isFocused = true)}
+					onblur={() => (isFocused = false)}
 					{onpaste}
 					placeholder={$_('chat.placeholder')}
 					disabled={isInputDisabled}
-					class="custom-scrollbar max-h-[200px] min-h-[40px] w-full resize-none bg-transparent py-2.5 px-1 text-[15px] leading-relaxed text-text-primary placeholder:text-text-secondary/50 focus:outline-none disabled:opacity-50"
+					class="custom-scrollbar max-h-[200px] min-h-[40px] w-full resize-none bg-transparent px-1 py-2.5 text-[15px] leading-relaxed text-text-primary placeholder:text-text-secondary/50 focus:outline-none disabled:opacity-50"
 					rows="1"
 				></textarea>
 
 				<!-- Send Button -->
-				<div class="shrink-0 h-10 w-10">
+				<div class="h-10 w-10 shrink-0">
 					{#if !streamIsDone}
 						<button
 							onclick={onstop}
@@ -153,13 +152,15 @@
 							aria-label={$_('chat.stop_generation')}
 							transition:scale={{ duration: 200, easing: cubicOut }}
 						>
-							<div class="h-3 w-3 rounded-[2px] bg-secondary group-hover:bg-red-500 transition-colors"></div>
+							<div
+								class="h-3 w-3 rounded-[2px] bg-secondary transition-colors group-hover:bg-red-500"
+							></div>
 						</button>
 					{:else}
 						<button
 							onclick={onsend}
 							disabled={isInputDisabled || (!currentInput.trim() && attachedFiles.length === 0)}
-							class="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-white shadow-lg shadow-accent/25 transition-all duration-300 hover:bg-accent-hover hover:scale-105 hover:shadow-accent/40 active:scale-95 disabled:cursor-not-allowed disabled:bg-tertiary disabled:text-text-secondary disabled:shadow-none disabled:hover:scale-100"
+							class="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-white shadow-lg shadow-accent/25 transition-all duration-300 hover:scale-105 hover:bg-accent-hover hover:shadow-accent/40 active:scale-95 disabled:cursor-not-allowed disabled:bg-tertiary disabled:text-text-secondary disabled:shadow-none disabled:hover:scale-100"
 							class:scale-110={isTyping && currentInput.trim().length > 0}
 							title={$_('chat.send_message')}
 							aria-label={$_('chat.send_message')}

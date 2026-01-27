@@ -1,32 +1,24 @@
 <script lang="ts">
 	let { text, cps = 60 } = $props<{ text: string; cps?: number }>();
-	let container: HTMLDivElement | undefined = $state();
 	let committed = $state('');
 	let pending = $state('');
 	let rafId = $state<number | null>(null);
 	let lastTs = $state(0);
 	let charBudget = $state(0);
-	let maxPerFrame = $state(3);
-	$effect(() => {
-		maxPerFrame = Math.max(2, Math.round(cps / 20));
-	});
+	let maxPerFrame = $derived(Math.max(2, Math.round(cps / 20)));
+
 	function start() {
 		if (rafId === null) rafId = requestAnimationFrame(tick);
 	}
-	function stop() {
-		if (rafId !== null) cancelAnimationFrame(rafId);
-		rafId = null;
-		renderCursor(true);
-	}
-	function renderCursor(_on: boolean) {}
+
 	function appendChars(count: number) {
-		if (!container || count <= 0 || pending.length === 0) return;
+		if (count <= 0 || pending.length === 0) return;
 		const take = Math.min(count, pending.length);
 		const chunk = pending.slice(0, take);
 		pending = pending.slice(take);
 		committed += chunk;
-		container.textContent = committed;
 	}
+
 	function tick(ts: number) {
 		if (lastTs === 0) lastTs = ts;
 		const dt = (ts - lastTs) / 1000;
@@ -44,6 +36,7 @@
 			rafId = null;
 		}
 	}
+
 	function enqueueDelta(nextText: string) {
 		if (nextText.startsWith(committed)) {
 			pending += nextText.slice(committed.length);
@@ -52,20 +45,20 @@
 			pending = nextText;
 			charBudget = 0;
 			lastTs = 0;
-			if (container) container.textContent = '';
 		}
 		start();
 	}
+
 	$effect(() => {
-		if (!container) return;
 		enqueueDelta(text || '');
 	});
+
 	$effect(() => () => {
 		if (rafId) cancelAnimationFrame(rafId);
 	});
 </script>
 
-<div class="streaming-type" bind:this={container} aria-live="polite"></div>
+<div class="streaming-type" aria-live="polite">{committed}</div>
 
 <style>
 	.streaming-type {

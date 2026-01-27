@@ -6,17 +6,18 @@ declare global {
 			accounts: {
 				id: {
 					initialize(config: unknown): void;
-					renderButton(
-						parent: HTMLElement,
-						options: unknown,
-						callback: (response: unknown) => void
-					): void;
+					renderButton(parent: HTMLElement, options: unknown): void;
 					prompt(callback: (notification: unknown) => void): void;
 				};
 			};
 		};
 		katex: (tex: string, options?: KatexOptions) => string;
-		renderMathInElement: (element: HTMLElement, options?: KatexOptions) => void;
+		renderMathInElement: (
+			element: HTMLElement,
+			options?: KatexOptions & {
+				delimiters?: Array<{ left: string; right: string; display: boolean }>;
+			}
+		) => void;
 		__egoOnlineHandler?: () => void;
 		__egoOfflineHandler?: () => void;
 		__egoMemoryEnabled?: boolean;
@@ -25,6 +26,10 @@ declare global {
 		};
 		__egoImageUrlCache?: Map<string, string>;
 		__egoImageInflight?: Map<string, Promise<string>>;
+		requestIdleCallback?: (
+			callback: (deadline: { didTimeout: boolean; timeRemaining: () => number }) => void,
+			options?: { timeout?: number }
+		) => number;
 	}
 }
 declare module 'marked' {

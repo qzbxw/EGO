@@ -4,7 +4,7 @@
 	import { apiPy, api } from '$lib/api';
 	import { toast } from 'svelte-sonner';
 	import { _ } from 'svelte-i18n';
-	import { Trash2, History, Brain } from '@lucide/svelte';
+	import { History, Brain } from '@lucide/svelte';
 
 	let isClearing = $state(false);
 
@@ -71,7 +71,9 @@
 		<div class="mb-4 flex items-start justify-between">
 			<div class="max-w-[70%]">
 				<div class="mb-1 text-sm font-medium text-text-primary">{$_('settings.cross_memory')}</div>
-				<p class="text-xs leading-relaxed text-text-secondary">{$_('settings.cross_memory_hint')}</p>
+				<p class="text-xs leading-relaxed text-text-secondary">
+					{$_('settings.cross_memory_hint')}
+				</p>
 			</div>
 			<label class="relative inline-flex cursor-pointer items-center">
 				<input

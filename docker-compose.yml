@@ -45,6 +45,10 @@ services:
     build:
       context: ./backend/python-api
       dockerfile: Dockerfile.prod
+      cache_from:
+        - type=registry,ref=ego-python-api:buildcache
+      args:
+        BUILDKIT_INLINE_CACHE: 1
     restart: unless-stopped
     ports:
       - "5001:5001"
@@ -68,6 +72,10 @@ services:
     build:
       context: ./backend/go-api
       dockerfile: Dockerfile.prod
+      cache_from:
+        - type=registry,ref=ego-go-api:buildcache
+      args:
+        BUILDKIT_INLINE_CACHE: 1
     restart: unless-stopped
     env_file: .env
     environment:
@@ -92,6 +100,11 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.prod
+      # Enable BuildKit caching
+      cache_from:
+        - type=registry,ref=ego-frontend:buildcache
+      args:
+        BUILDKIT_INLINE_CACHE: 1
     restart: unless-stopped
     env_file: .env
     networks:

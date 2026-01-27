@@ -9,7 +9,11 @@ import {
 	type MaintenanceStatus
 } from '$lib/api/maintenance';
 class MaintenanceStore {
-	private _status = $state<MaintenanceStatus>({ maintenance: false, isChatOnly: false, message: '' });
+	private _status = $state<MaintenanceStatus>({
+		maintenance: false,
+		isChatOnly: false,
+		message: ''
+	});
 	private _isChecking = $state(false);
 	private _bypassToken = $state<string | null>(null);
 	private checkInterval: number | null = null;
@@ -105,7 +109,7 @@ class MaintenanceStore {
 		if (this.checkInterval) {
 			clearInterval(this.checkInterval);
 		}
-		this.checkInterval = setInterval(async () => {
+		this.checkInterval = window.setInterval(async () => {
 			await this.checkStatus();
 		}, 30000);
 	}

@@ -1,11 +1,10 @@
 <script lang="ts">
-	import { Calendar, Clock, History } from '@lucide/svelte';
+	import { History } from '@lucide/svelte';
 	import { _ as t, locale } from 'svelte-i18n';
 
 	interface TimelineData {
 		first_request_at: string | null;
 		last_request_at: string | null;
-		days_active: number;
 	}
 
 	let { stats }: { stats: TimelineData } = $props();
@@ -30,7 +29,9 @@
 	}
 </script>
 
-<div class="rounded-2xl border border-tertiary bg-secondary/30 p-6 transition-all hover:bg-secondary/50">
+<div
+	class="rounded-2xl border border-tertiary bg-secondary/30 p-6 transition-all hover:bg-secondary/50"
+>
 	<div class="mb-6 flex items-center gap-3">
 		<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10 text-accent">
 			<History class="h-5 w-5" />

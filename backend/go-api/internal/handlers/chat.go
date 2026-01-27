@@ -37,8 +37,11 @@ func NewChatHandler(db *database.DB, processor *engine.Processor, validate *vali
 	}
 }
 
-// HandleChatStream handles the POST request to start a chat stream.
-// It uses Server-Sent Events (SSE) to stream the response back to the client.
+type contextKey string
+
+const memoryEnabledKey contextKey = "memory_enabled"
+
+// HandleChatStream processes the streaming chat request.
 func (h *ChatHandler) HandleChatStream(w http.ResponseWriter, r *http.Request) {
 	// 1. Authentication Check
 	user, ok := r.Context().Value(UserContextKey).(*models.User)
@@ -64,7 +67,7 @@ func (h *ChatHandler) HandleChatStream(w http.ResponseWriter, r *http.Request) {
 	if err == nil && maintenance.IsEnabled {
 		// If full maintenance, middleware should have caught it, but we check here too.
 		// If chat-only maintenance, we block the stream specifically.
-		
+
 		// Note: We check if there's a bypass token in headers
 		bypassToken := r.Header.Get("X-Bypass-Token")
 		hasBypass := false
@@ -132,7 +135,7 @@ func (h *ChatHandler) HandleChatStream(w http.ResponseWriter, r *http.Request) {
 
 		log.Printf("[ChatStream] Starting new stream for user %d (Session: %s)", user.ID, tempSessionUUID)
 		job = streamManager.CreateJob(tempSessionUUID, user.ID)
-		// We use the actual sessionUUID if it becomes available, but for the manager, 
+		// We use the actual sessionUUID if it becomes available, but for the manager,
 		// we must use the one we used to create the job.
 		sessionUUID = tempSessionUUID
 	}
@@ -169,7 +172,7 @@ func (h *ChatHandler) HandleChatStream(w http.ResponseWriter, r *http.Request) {
 			// Pass memory_enabled if needed
 			ctx := job.Ctx
 			if req.MemoryEnabled != nil {
-				ctx = context.WithValue(ctx, "memory_enabled", *req.MemoryEnabled)
+				ctx = context.WithValue(ctx, memoryEnabledKey, *req.MemoryEnabled)
 			}
 
 			// Run the processor

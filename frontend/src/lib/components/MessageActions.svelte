@@ -13,8 +13,15 @@
 		isThinking,
 		isCancelled,
 		streamIsDone,
-		logId,
-		lastMessageLogId
+		logId
+	}: {
+		author: string;
+		text: string;
+		isLastMessage: boolean;
+		isThinking: boolean;
+		isCancelled: boolean;
+		streamIsDone: boolean;
+		logId?: number;
 	} = $props();
 
 	const canRegenerate = $derived(
@@ -25,7 +32,7 @@
 
 	function copyToClipboard(str: string) {
 		navigator.clipboard
-			.writeText(str)
+			.writeText(str || '')
 			.then(() =>
 				toast.success(
 					$_(author === 'user' ? 'toasts.copy_message_success' : 'toasts.copy_response_success')
@@ -39,12 +46,12 @@
 	}
 </script>
 
-<div class="flex items-center gap-1 md:gap-2 text-text-secondary/70">
+<div class="flex items-center gap-1 text-text-secondary/70 md:gap-2">
 	{#if canRegenerate}
 		<button
 			onclick={() => dispatch('regenerate')}
 			disabled={chatStore.isUILocked}
-			class="p-2 md:p-1 transition-all hover:text-text-primary active:scale-90 disabled:cursor-not-allowed disabled:opacity-50"
+			class="p-2 transition-all hover:text-text-primary active:scale-90 disabled:cursor-not-allowed disabled:opacity-50 md:p-1"
 			title={$_('chat.regenerate')}
 		>
 			<RefreshCw size={14} class={chatStore.isRegenerating ? 'animate-spin' : ''} />
@@ -58,15 +65,15 @@
 				dispatch('edit');
 			}}
 			disabled={chatStore.isUILocked}
-			class="p-2 md:p-1 transition-all hover:text-text-primary active:scale-90 disabled:cursor-not-allowed disabled:opacity-50"
+			class="p-2 transition-all hover:text-text-primary active:scale-90 disabled:cursor-not-allowed disabled:opacity-50 md:p-1"
 			title={$_('chat.edit_and_regenerate')}
 		>
 			<Pencil size={14} />
 		</button>
 	{/if}
 	<button
-		onclick={() => copyToClipboard(text)}
-		class="p-2 md:p-1 transition-all hover:text-text-primary active:scale-90"
+		onclick={() => copyToClipboard(text as string)}
+		class="p-2 transition-all hover:text-text-primary active:scale-90 md:p-1"
 		title={$_('chat.copy')}
 	>
 		<Copy size={14} />

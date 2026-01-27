@@ -81,6 +81,11 @@ func (p *Processor) DeleteSessionVectors(ctx context.Context, userID, sessionUUI
 	return p.llmClient.DeleteSessionVectors(ctx, userID, sessionUUID)
 }
 
+// ClearMemory notifies the Python service to delete all memory vectors for a user.
+func (p *Processor) ClearMemory(ctx context.Context, userID string) error {
+	return p.llmClient.ClearMemory(ctx, userID)
+}
+
 // ProcessRequest is the main entry point for handling a streaming request.
 func (p *Processor) ProcessRequest(ctx context.Context, req models.StreamRequest, user *models.User, tempID int64, callback EventCallback) {
 	// 1. Preparation
@@ -103,17 +108,6 @@ func (p *Processor) ProcessRequest(ctx context.Context, req models.StreamRequest
 		return
 	}
 
-	// Update the job mapping if the session UUID changed (e.g., from a temp "new-xxx" to a real UUID)
-	originalSessionUUID := ""
-	if req.SessionUUID != nil {
-		originalSessionUUID = *req.SessionUUID
-	}
-	if originalSessionUUID == "" || originalSessionUUID == "new" || strings.HasPrefix(originalSessionUUID, "new-") {
-		// If we started with a temporary UUID, the StreamManager needs to know about the real one
-		// This is a bit of a hack because StreamManager is global, but we need it for job tracking.
-		// For now, we'll just ensure the cleanup uses the original UUID we used to register the job.
-	}
-
 	logID, err := p.prepareRequestLog(req, user, session)
 	if err != nil {
 		callback("error", map[string]string{"message": err.Error()})
@@ -127,8 +121,13 @@ func (p *Processor) ProcessRequest(ctx context.Context, req models.StreamRequest
 		log.Printf("[Processor] Non-fatal error during file uploads: %v", err)
 	}
 
+	memEnabled := true
+	if req.MemoryEnabled != nil {
+		memEnabled = *req.MemoryEnabled
+	}
+
 	contextBuilder := newContextBuilder(p.db, p.s3Service)
-	llmContext, err := contextBuilder.build(ctx, user, session, logID, req.IsRegeneration, newlyAttachedIDs, req.Query)
+	llmContext, err := contextBuilder.build(ctx, user, session, logID, req.IsRegeneration, newlyAttachedIDs, req.Query, memEnabled)
 	if err != nil {
 		callback("error", map[string]string{"message": "Error building context: " + err.Error()})
 		return
@@ -166,13 +165,13 @@ func (p *Processor) getOrCreateSession(req models.StreamRequest, user *models.Us
 		if session == nil {
 			return nil, fmt.Errorf("session not found or access denied")
 		}
-		
-		// Logic: If the title is "New Chat" OR exactly matches the current query, 
+
+		// Logic: If the title is "New Chat" OR exactly matches the current query,
 		// it's likely a temporary title. We try to generate a better one.
 		// We only do this if this isn't a regeneration.
 		currentTitle := strings.TrimSpace(session.Title)
 		isGeneric := currentTitle == "" || currentTitle == "New Chat" || currentTitle == "Новый чат" || currentTitle == req.Query
-		
+
 		if !req.IsRegeneration && isGeneric && strings.TrimSpace(req.Query) != "" {
 			titleWg.Add(1)
 			go p.updateTitleAndInstructions(session, req, callback, titleWg)
@@ -275,45 +274,45 @@ func (p *Processor) runThinkingCycle(ctx context.Context, user *models.User, ses
 
 		callback("thought_header", map[string]string{"header": fmt.Sprintf("Thinking (Step %d)", i+1)})
 
-		        iterationStartTime := time.Now()
-				memEnabled := true // Default to true
-				if req.MemoryEnabled != nil {
-					memEnabled = *req.MemoryEnabled
-				}
-				pythonReq := p.buildPythonRequest(user, session, req.Query, llmCtx, thoughtsHistory, false, 0, memEnabled)
-				// Send current request inline files (with Base64) so Python receives actual image bytes.
-				thoughtData, err := p.llmClient.generateThought(thinkingCtx, pythonReq, req.Files, callback, p.db, session.UUID)
-		
-				if err != nil {
-					consecutiveErrors++
-					log.Printf("[Processor] Thought iteration %d error: %v (consecutive: %d)", i+1, err, consecutiveErrors)
-		
-					if consecutiveErrors >= maxConsecutiveErrors {
-						log.Printf("[Processor] Too many consecutive errors (%d), switching to direct response", consecutiveErrors)
-						callback("thought_header", map[string]string{"header": "Switching to direct response..."})
-						return thoughtsHistory, nil
-					}
-		
-					// Retry с exponential backoff
-					backoffDelay := time.Duration(consecutiveErrors) * time.Second
-					log.Printf("[Processor] Waiting %v before retry...", backoffDelay)
-					time.Sleep(backoffDelay)
-					continue
-				}
-		
-				consecutiveErrors = 0
-				stats.thoughtDurations = append(stats.thoughtDurations, time.Since(iterationStartTime).Milliseconds())
-		
-				// Update history and send headers via helper
-				p.processThoughtOnly(thoughtData, &thoughtsHistory, callback, stats)
-				p.executeToolsAndAddToHistory(thoughtData, &thoughtsHistory, callback, memEnabled, user.ID, session.UUID)
-		
-				if !thoughtData.Thought.NextThoughtNeeded {
-					break
-				}
-			}
-			return thoughtsHistory, nil
+		iterationStartTime := time.Now()
+		memEnabled := true // Default to true
+		if req.MemoryEnabled != nil {
+			memEnabled = *req.MemoryEnabled
 		}
+		pythonReq := p.buildPythonRequest(user, session, req.Query, llmCtx, thoughtsHistory, false, 0, memEnabled)
+		// Send current request inline files (with Base64) so Python receives actual image bytes.
+		thoughtData, err := p.llmClient.generateThought(thinkingCtx, pythonReq, req.Files, callback, p.db, session.UUID)
+
+		if err != nil {
+			consecutiveErrors++
+			log.Printf("[Processor] Thought iteration %d error: %v (consecutive: %d)", i+1, err, consecutiveErrors)
+
+			if consecutiveErrors >= maxConsecutiveErrors {
+				log.Printf("[Processor] Too many consecutive errors (%d), switching to direct response", consecutiveErrors)
+				callback("thought_header", map[string]string{"header": "Switching to direct response..."})
+				return thoughtsHistory, nil
+			}
+
+			// Retry с exponential backoff
+			backoffDelay := time.Duration(consecutiveErrors) * time.Second
+			log.Printf("[Processor] Waiting %v before retry...", backoffDelay)
+			time.Sleep(backoffDelay)
+			continue
+		}
+
+		consecutiveErrors = 0
+		stats.thoughtDurations = append(stats.thoughtDurations, time.Since(iterationStartTime).Milliseconds())
+
+		// Update history and send headers via helper
+		p.processThoughtOnly(thoughtData, &thoughtsHistory, callback, stats)
+		p.executeToolsAndAddToHistory(thoughtData, &thoughtsHistory, callback, memEnabled, user.ID, session.UUID)
+
+		if !thoughtData.Thought.NextThoughtNeeded {
+			break
+		}
+	}
+	return thoughtsHistory, nil
+}
 
 func (p *Processor) synthesizeFinalResponse(ctx context.Context, user *models.User, session *models.ChatSession, req models.StreamRequest, llmCtx *llmContext, thoughtsHistory []map[string]interface{}, callback EventCallback, logID int64, stats *requestStats) (string, error) {
 	callback("thought_header", map[string]string{"header": "Synthesizing response..."})
@@ -453,8 +452,8 @@ func (p *Processor) executeToolsAndAddToHistory(thoughtData *models.ThoughtRespo
 		for i, result := range thoughtData.ToolResults {
 			// Log tool result details
 			resultTypeRaw, hasType := result["type"]
-			
-			// If type is missing, but we are in this loop, it's likely a tool_output 
+
+			// If type is missing, but we are in this loop, it's likely a tool_output
 			// from the Python SSE stream that was flattened.
 			if !hasType || resultTypeRaw == nil {
 				log.Printf("[TOOL RESULTS] Item %d has no type, defaulting to tool_output", i+1)
@@ -485,7 +484,7 @@ func (p *Processor) executeToolsAndAddToHistory(thoughtData *models.ThoughtRespo
 							result["tool_name"] = tn
 						}
 					}
-					
+
 					toolName, _ := result["tool_name"].(string)
 					if toolName == "" {
 						toolName = "Unknown Tool"
@@ -495,7 +494,7 @@ func (p *Processor) executeToolsAndAddToHistory(thoughtData *models.ThoughtRespo
 					if output, ok := result["output"].(string); ok && strings.HasPrefix(output, "LOCAL_TOOL_SIGNAL:manage_plan:") {
 						log.Printf("[Processor] Intercepted local plan signal: %s", output)
 						jsonQuery := strings.TrimPrefix(output, "LOCAL_TOOL_SIGNAL:manage_plan:")
-						
+
 						te := newToolExecutor(p.llmClient, p.db)
 						localResult, err := te.executePlanManager(jsonQuery, sessionUUID, callback)
 						if err != nil {
@@ -530,12 +529,6 @@ func (p *Processor) executeToolsAndAddToHistory(thoughtData *models.ThoughtRespo
 	}
 }
 
-// Legacy function for backward compatibility
-func (p *Processor) processThoughtData(thoughtData *models.ThoughtResponseWithData, thoughtsHistory *[]map[string]interface{}, callback EventCallback, memEnabled bool, userID int, stats *requestStats, sessionUUID string) {
-	p.processThoughtOnly(thoughtData, thoughtsHistory, callback, stats)
-	p.executeToolsAndAddToHistory(thoughtData, thoughtsHistory, callback, memEnabled, userID, sessionUUID)
-}
-
 func (p *Processor) buildPythonRequest(user *models.User, session *models.ChatSession, query string, llmCtx *llmContext, thoughtsHistory []map[string]interface{}, isSynthesis bool, logID int64, memoryEnabled bool) models.PythonRequest {
 	log.Printf("[BUILD PYTHON REQUEST] Building request with thoughtsHistory length: %d, isSynthesis: %v, memoryEnabled: %v", len(thoughtsHistory), isSynthesis, memoryEnabled)
 
@@ -561,7 +554,6 @@ func (p *Processor) buildPythonRequest(user *models.User, session *models.ChatSe
 		ChatHistory:        llmCtx.chatHistory,
 		ThoughtsHistory:    thoughtsHistoryJSON,
 		CustomInstructions: session.CustomInstructions,
-		RetrievedSnippets:  llmCtx.retrievedSnippets,
 		UserID:             fmt.Sprintf("%d", user.ID),
 		SessionUUID:        session.UUID,
 		LogID:              logID,

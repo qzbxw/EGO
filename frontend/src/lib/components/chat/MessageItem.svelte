@@ -1,29 +1,25 @@
 <script lang="ts">
-	import { Paperclip, StopCircle, Check, Loader2, AlertCircle } from '@lucide/svelte';
-	import { fly, scale, fade } from 'svelte/transition';
+	import { Paperclip, StopCircle } from '@lucide/svelte';
+	import { fly, fade } from 'svelte/transition';
 	import { cubicOut, quintOut } from 'svelte/easing';
 	import { _ } from 'svelte-i18n';
 	import { autosize } from '$lib/actions/autosize.ts';
 	import { auth } from '$lib/stores/auth.svelte.ts';
 	import { getAppLogo } from '$lib/config';
 	import { preferencesStore } from '$lib/stores/preferences.svelte.ts';
-	import { formatToolHeader, parseToolHeader, getToolColor } from '$lib/utils/toolStatus.ts';
 	import MessageBody from '$lib/components/MessageBody.svelte';
 	import StreamingMarkdownLite from '$lib/components/StreamingMarkdownLite.svelte';
 	import ThoughtChain from './ThoughtChain.svelte';
-	import AuthenticatedImage from '$lib/components/AuthenticatedImage.svelte';
 	import LazyImage from '$lib/components/LazyImage.svelte';
 	import MessageActions from '$lib/components/MessageActions.svelte';
-	import type { ChatMessage } from '$lib/types';
+	import type { ChatMessage, StreamStoreState } from '$lib/types';
 
 	let {
 		message,
 		editingLogId = null,
 		editingText = '',
 		editingTextarea = null,
-		lastMessageLogId = null,
 		streamStore,
-		lastMessageId = null,
 		isMobile = false,
 		index = 0,
 		onstartedit,
@@ -35,9 +31,7 @@
 		editingLogId: number | null;
 		editingText: string;
 		editingTextarea: HTMLTextAreaElement | null;
-		lastMessageLogId: number | null;
-		streamStore: any;
-		lastMessageId: number | null;
+		streamStore: StreamStoreState;
 		isMobile: boolean;
 		index: number;
 		onstartedit: (message: ChatMessage) => void;
@@ -48,7 +42,7 @@
 </script>
 
 <div
-	class="group flex w-full mb-6"
+	class="group mb-6 flex w-full"
 	class:justify-start={message.author === 'ego'}
 	class:justify-end={message.author === 'user'}
 >
@@ -58,16 +52,20 @@
 		class:items-start={message.author === 'ego'}
 		class:md:max-w-5xl={message.author === 'user'}
 		class:md:max-w-6xl={message.author === 'ego'}
-		in:fly={
-			message.author === 'user'
-				? { y: 15, duration: 300, delay: Math.min(index * 30, 150), easing: quintOut }
-				: { y: 15, duration: 300, delay: Math.min(index * 30, 150), easing: quintOut }
-		}
+		in:fly={message.author === 'user'
+			? { y: 15, duration: 300, delay: Math.min(index * 30, 150), easing: quintOut }
+			: { y: 15, duration: 300, delay: Math.min(index * 30, 150), easing: quintOut }}
 	>
 		<!-- Avatar + Name Header -->
-		<div class="mb-2 flex items-center gap-3 px-1" class:flex-row-reverse={message.author === 'user'}>
-			<div 
-				class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border shadow-sm bg-secondary/80 backdrop-blur-md transition-colors {message.author === 'user' ? 'border-accent/30' : 'border-white/10'}"
+		<div
+			class="mb-2 flex items-center gap-3 px-1"
+			class:flex-row-reverse={message.author === 'user'}
+		>
+			<div
+				class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border bg-secondary/80 shadow-sm backdrop-blur-md transition-colors {message.author ===
+				'user'
+					? 'border-accent/30'
+					: 'border-white/10'}"
 			>
 				{#if message.author === 'ego'}
 					<img
@@ -81,7 +79,7 @@
 					</span>
 				{/if}
 			</div>
-			<span class="text-[10px] font-black text-text-secondary/60 uppercase tracking-[0.2em]">
+			<span class="text-[10px] font-black uppercase tracking-[0.2em] text-text-secondary/60">
 				{message.author === 'ego' ? 'EGO' : $_('chat.you')}
 			</span>
 		</div>
@@ -94,12 +92,12 @@
 		>
 			<!-- Thinking / Streaming / Tools -->
 			{#if message.isThinking}
-				<ThoughtChain 
-					thoughts={streamStore.thoughts} 
+				<ThoughtChain
+					thoughts={streamStore.thoughts}
 					currentHeader={streamStore.thoughtHeader}
 					isThinking={true}
 				/>
-				
+
 				{#if streamStore.textStream}
 					<!-- Streaming Text Bubble -->
 					<div
@@ -109,10 +107,12 @@
 					</div>
 				{/if}
 
-			<!-- Editing Mode -->
+				<!-- Editing Mode -->
 			{:else if editingLogId === message.logId && message.author === 'user'}
 				<div in:fly={{ y: 10, duration: 200 }} class="w-full max-w-2xl">
-					<div class="rounded-2xl border border-accent/30 bg-secondary/80 p-1 shadow-2xl backdrop-blur-xl">
+					<div
+						class="rounded-2xl border border-accent/30 bg-secondary/80 p-1 shadow-2xl backdrop-blur-xl"
+					>
 						<textarea
 							bind:this={editingTextarea}
 							bind:value={editingText}
@@ -144,13 +144,15 @@
 					</div>
 				</div>
 
-			<!-- Standard Message -->
+				<!-- Standard Message -->
 			{:else}
 				<!-- Attachments -->
 				{#if message.attachments && message.attachments.length > 0}
 					<div class="mb-2 flex flex-wrap gap-2" class:justify-end={message.author === 'user'}>
-						{#each message.attachments as attachment}
-							<div class="overflow-hidden rounded-xl border border-white/10 bg-secondary/50 shadow-md transition-transform hover:scale-[1.02]">
+						{#each message.attachments as attachment (attachment.file_name + attachment.mime_type)}
+							<div
+								class="overflow-hidden rounded-xl border border-white/10 bg-secondary/50 shadow-md transition-transform hover:scale-[1.02]"
+							>
 								{#if attachment.mime_type?.startsWith('image/') && attachment.preview_url}
 									<LazyImage
 										src={attachment.preview_url}
@@ -163,7 +165,9 @@
 											<Paperclip class="h-4 w-4 text-text-primary" />
 										</div>
 										<div class="flex flex-col">
-											<span class="max-w-[180px] truncate text-sm font-medium text-text-primary">{attachment.file_name}</span>
+											<span class="max-w-[180px] truncate text-sm font-medium text-text-primary"
+												>{attachment.file_name}</span
+											>
 											{#if attachment.mime_type}
 												<span class="text-[10px] text-text-secondary">{attachment.mime_type}</span>
 											{/if}
@@ -174,26 +178,27 @@
 						{/each}
 					</div>
 				{/if}
-
 				<!-- Text Bubble -->
 				{#if message.text || (message.thoughts && message.thoughts.length > 0)}
 					<div class="flex w-full flex-col gap-3" class:items-end={message.author === 'user'}>
 						{#if message.thoughts && message.thoughts.length > 0}
 							<ThoughtChain thoughts={message.thoughts} />
 						{/if}
-						
+
 						{#if message.text}
 							<div
 								in:fade={{ duration: 300, easing: cubicOut }}
 								class="message-bubble relative z-10 w-fit max-w-[85vw] break-words px-6 py-4 text-[15px] leading-7 shadow-sm transition-all md:max-w-3xl
-								{message.author === 'user' 
-									? 'bg-accent/[0.03] backdrop-blur-2xl border border-accent/20 text-text-primary rounded-2xl rounded-tr-none' 
-									: 'bg-secondary/60 backdrop-blur-2xl border border-white/5 text-text-primary rounded-2xl rounded-tl-none'}"
+								{message.author === 'user'
+									? 'rounded-2xl rounded-tr-none border border-accent/20 bg-accent/[0.03] text-text-primary backdrop-blur-2xl'
+									: 'rounded-2xl rounded-tl-none border border-white/5 bg-secondary/60 text-text-primary backdrop-blur-2xl'}"
 							>
 								<MessageBody text={message.text} invert={false} />
-								
+
 								{#if message.isCancelled}
-									<div class="mt-3 flex items-center gap-1.5 rounded-lg bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400">
+									<div
+										class="mt-3 flex items-center gap-1.5 rounded-lg bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400"
+									>
 										<StopCircle class="h-3 w-3" />
 										<span>Generation stopped</span>
 									</div>
@@ -216,11 +221,10 @@
 					author={message.author}
 					text={message.text}
 					isLastMessage={index === 0}
-					isThinking={message.isThinking}
-					isCancelled={message.isCancelled}
+					isThinking={!!message.isThinking}
+					isCancelled={!!message.isCancelled}
 					streamIsDone={streamStore.isDone}
 					logId={message.logId}
-					{lastMessageLogId}
 					on:regenerate={() => onregenerate(message)}
 					on:edit={() => onstartedit(message)}
 				/>
@@ -231,7 +235,7 @@
 
 <style>
 	.glass-bubble {
-		box-shadow: 
+		box-shadow:
 			0 4px 6px -1px rgba(0, 0, 0, 0.1),
 			0 2px 4px -1px rgba(0, 0, 0, 0.06),
 			inset 0 1px 0 rgba(255, 255, 255, 0.05);

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { TrendingUp, Activity, Cpu, Globe } from '@lucide/svelte';
+	import { Cpu, Globe } from '@lucide/svelte';
 	import { _ as t } from 'svelte-i18n';
 	import type { ProviderTokens } from '$lib/types';
 
@@ -43,7 +43,7 @@
 		</div>
 
 		<div class="space-y-4">
-			{#each Object.entries(stats.provider_usage).sort((a, b) => b[1] - a[1]) as [provider, count]}
+			{#each Object.entries(stats.provider_usage).sort((a, b) => b[1] - a[1]) as [provider, count] (provider)}
 				<div class="space-y-2">
 					<div class="flex items-center justify-between text-xs font-medium">
 						<span class="capitalize text-text-primary">{provider}</span>
@@ -65,17 +65,23 @@
 		</div>
 
 		{#if providerTokens.length > 0}
-			<div class="mt-8 border-t border-tertiary/50 pt-6 space-y-3">
-				<h4 class="text-[10px] font-black uppercase tracking-widest text-text-secondary">Token Distribution</h4>
-				{#each providerTokens.filter((row) => (row.total_tokens ?? 0) > 0) as row}
+			<div class="mt-8 space-y-3 border-t border-tertiary/50 pt-6">
+				<h4 class="text-[10px] font-black uppercase tracking-widest text-text-secondary">
+					Token Distribution
+				</h4>
+				{#each providerTokens.filter((row) => (row.total_tokens ?? 0) > 0) as row (row.llm_provider)}
 					<div class="flex items-center justify-between text-[11px]">
 						<div class="flex items-center gap-2">
 							<div class="h-1.5 w-1.5 rounded-full bg-accent"></div>
-							<span class="capitalize font-medium text-text-primary">{row.llm_provider}</span>
+							<span class="font-medium capitalize text-text-primary">{row.llm_provider}</span>
 						</div>
 						<div class="flex items-center gap-3 text-text-secondary">
 							<span>{formatNumber(row.total_tokens ?? 0)} tokens</span>
-							<span class="text-[10px] opacity-50">{formatNumber(row.prompt_tokens ?? 0)} / {formatNumber(row.completion_tokens ?? 0)}</span>
+							<span class="text-[10px] opacity-50"
+								>{formatNumber(row.prompt_tokens ?? 0)} / {formatNumber(
+									row.completion_tokens ?? 0
+								)}</span
+							>
 						</div>
 					</div>
 				{/each}
@@ -98,7 +104,7 @@
 		<div class="space-y-4">
 			{#each Object.entries(stats.model_usage)
 				.sort((a, b) => (Number(b[1]) || 0) - (Number(a[1]) || 0))
-				.slice(0, 8) as [model, count]}
+				.slice(0, 8) as [model, count] (model)}
 				<div class="space-y-2">
 					<div class="flex items-center justify-between text-xs font-medium">
 						<span class="truncate pr-4 text-text-primary">{model}</span>

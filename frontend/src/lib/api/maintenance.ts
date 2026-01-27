@@ -6,7 +6,9 @@ try {
 			BASE_URL = '/api';
 		}
 	}
-} catch {}
+} catch (e) {
+	console.debug('Failed to auto-configure BASE_URL from location:', e);
+}
 export interface MaintenanceStatus {
 	maintenance: boolean;
 	isChatOnly: boolean;
@@ -26,7 +28,9 @@ export async function checkMaintenanceStatus(): Promise<MaintenanceStatus> {
 					bypassToken = urlToken;
 					console.log('🔧 checkMaintenanceStatus: found bypass token in URL (not storing yet)');
 				}
-			} catch {}
+			} catch (e) {
+				console.warn('Failed to parse URL parameters for bypass token:', e);
+			}
 		}
 		const headers: Record<string, string> = {
 			'Content-Type': 'application/json'
@@ -58,7 +62,8 @@ export async function checkMaintenanceStatus(): Promise<MaintenanceStatus> {
 						message: data.message || 'Sorry, Service is currently unavailable :('
 					};
 				}
-			} catch {
+			} catch (e) {
+				console.warn('Failed to parse 503/502 error response JSON:', e);
 				return {
 					maintenance: true,
 					isChatOnly: false,
@@ -87,7 +92,8 @@ export async function checkMaintenanceStatus(): Promise<MaintenanceStatus> {
 								message: data.message || 'Sorry, Service is currently unavailable :('
 							};
 						}
-					} catch {
+					} catch (e) {
+						console.warn('Failed to parse test response JSON:', e);
 						return {
 							maintenance: true,
 							isChatOnly: false,
@@ -95,7 +101,9 @@ export async function checkMaintenanceStatus(): Promise<MaintenanceStatus> {
 						};
 					}
 				}
-			} catch {}
+			} catch (e) {
+				console.warn('Secondary maintenance check failed:', e);
+			}
 		}
 		return { maintenance: false, isChatOnly: false, message: '' };
 	} catch (error) {
@@ -115,7 +123,9 @@ export function getBypassToken(): string | null {
 		if (m && m[1]) {
 			token = decodeURIComponent(m[1]);
 		}
-	} catch {}
+	} catch (e) {
+		console.debug('Regex match failed for bypass token:', e);
+	}
 	if (!token) {
 		const urlParams = new URLSearchParams(window.location.search);
 		token = urlParams.get('bypass_token') || urlParams.get('token');
@@ -141,7 +151,9 @@ export function storeBypassToken(token: string): void {
 	localStorage.setItem('maintenance_bypass_token', token);
 	try {
 		document.cookie = `maintenance_bypass_token=${encodeURIComponent(token)}; Path=/; Max-Age=259200; SameSite=Lax`;
-	} catch {}
+	} catch (e) {
+		console.error('Failed to set maintenance bypass cookie:', e);
+	}
 }
 export function getStoredBypassToken(): string | null {
 	if (!browser) return null;
@@ -155,7 +167,9 @@ export function getStoredBypassToken(): string | null {
 			const value = decodeURIComponent(match.split('=')[1] || '');
 			if (value) return value;
 		}
-	} catch {}
+	} catch (e) {
+		console.error('Failed to read maintenance bypass cookie:', e);
+	}
 	return null;
 }
 export function clearBypassToken(): void {
@@ -163,7 +177,9 @@ export function clearBypassToken(): void {
 	localStorage.removeItem('maintenance_bypass_token');
 	try {
 		document.cookie = 'maintenance_bypass_token=; Path=/; Max-Age=0; SameSite=Lax';
-	} catch {}
+	} catch (e) {
+		console.error('Failed to clear maintenance bypass cookie:', e);
+	}
 }
 export async function validateBypassToken(token: string): Promise<boolean> {
 	if (!browser || !token) {
@@ -194,8 +210,8 @@ export async function validateBypassToken(token: string): Promise<boolean> {
 				const isValid = !!data?.valid;
 				console.log('🔧 validateBypassToken: result', { isValid, status: response.status });
 				return isValid;
-			} catch {
-				console.log('🔧 validateBypassToken: invalid JSON response, treat as invalid');
+			} catch (e) {
+				console.log('🔧 validateBypassToken: invalid JSON response, treat as invalid', e);
 				return false;
 			}
 		}

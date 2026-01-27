@@ -83,7 +83,6 @@ type PythonRequest struct {
 	CustomInstructions *string       `json:"custom_instructions,omitempty"`
 	Files              []FilePayload `json:"files,omitempty"`        // Files sent inline
 	CachedFiles        []CachedFile  `json:"cached_files,omitempty"` // Files referenced from storage
-	RetrievedSnippets  []string      `json:"retrieved_snippets,omitempty"`
 	UserID             string        `json:"user_id,omitempty"`
 	SessionUUID        string        `json:"session_uuid,omitempty"`
 	LLMSettings        *LLMSettings  `json:"llm_settings,omitempty"`
@@ -138,7 +137,7 @@ type ThoughtResponse struct {
 	ToolReasoning     string     `json:"tool_reasoning"`
 	ToolCalls         []ToolCall `json:"tool_calls"`
 	ThoughtHeader     string     `json:"thoughts_header"`
-	NextThoughtNeeded bool       `json:"nextThoughtNeeded"`
+	NextThoughtNeeded bool       `json:"next_thought_needed"`
 	ConfidenceScore   float64    `json:"confidence_score"`
 	SelfCritique      string     `json:"self_critique"`
 	PlanStatus        string     `json:"plan_status"`

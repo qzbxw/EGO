@@ -1,6 +1,5 @@
 <script lang="ts">
-	import type { PageData } from './$types';
-	import type { ChatSession } from '$lib/types';
+	import type { ChatSession, ChatMessage } from '$lib/types';
 	import { toast } from 'svelte-sonner';
 	import { _ } from 'svelte-i18n';
 	import { api } from '$lib/api';
@@ -14,12 +13,15 @@
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
-	import { browser } from '$app/environment';
-	import { preferencesStore } from '$lib/stores/preferences.svelte.ts';
 	import { canvasStore } from '$lib/stores/canvas.svelte.ts';
 	import Canvas from '$lib/components/Canvas.svelte';
 
-	let { data } = $props<{ data: PageData }>();
+	let { data } = $props<{
+		data: {
+			session: ChatSession | null;
+			messages: ChatMessage[];
+		};
+	}>();
 
 	// ============================================================================
 	// STATE
@@ -96,8 +98,8 @@
 		<ChatHeader {currentSession} />
 
 		{#if isMounted}
-			<div in:fade={{ duration: 200 }} class="flex flex-1 overflow-hidden relative">
-				<div class="flex-1 min-w-0 h-full flex flex-col transition-all duration-300">
+			<div in:fade={{ duration: 200 }} class="relative flex flex-1 overflow-hidden">
+				<div class="flex h-full min-w-0 flex-1 flex-col transition-all duration-300">
 					<ChatContainer
 						{sessionID}
 						initialSession={data.session}
@@ -105,10 +107,10 @@
 						pendingCustomInstructions={customInstructionsInput}
 					/>
 				</div>
-				
+
 				{#if canvasStore.isOpen}
-					<div 
-						class="w-1/2 h-full border-l border-white/10 shadow-2xl z-20 backdrop-blur-xl bg-secondary/30"
+					<div
+						class="z-20 h-full w-1/2 border-l border-white/10 bg-secondary/30 shadow-2xl backdrop-blur-xl"
 						transition:fly={{ x: 100, duration: 500, opacity: 0, easing: cubicOut }}
 					>
 						<Canvas />

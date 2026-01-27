@@ -1,5 +1,6 @@
 import { setIsThinking } from '$lib/stores/ui.svelte.ts';
 import { chatStore } from './chat.svelte';
+import type { SessionPlan } from '$lib/types';
 
 // Re-export all stream-related actions from chatStore
 export const startStream = (sessionUUID: string | null) => {
@@ -32,8 +33,8 @@ export const resetStreamStore = () => {
 	setIsThinking(false);
 };
 
-export const tryHydrateFromStorage = (sessionUUID: string): boolean => {
-	const success = chatStore.tryHydrateFromStorage(sessionUUID);
+export const tryHydrateFromStorage = (): boolean => {
+	const success = chatStore.tryHydrateFromStorage();
 	if (success && !chatStore.streamIsDone) {
 		setIsThinking(true);
 	}
@@ -72,13 +73,13 @@ export const streamStore = {
 		chatStore.stream.isDone = value;
 	},
 
-    // Alias for isDone for backwards compatibility/semantics
-    get streaming() {
-        return !chatStore.stream.isDone;
-    },
-    set streaming(value: boolean) {
-        chatStore.stream.isDone = !value;
-    },
+	// Alias for isDone for backwards compatibility/semantics
+	get streaming() {
+		return !chatStore.stream.isDone;
+	},
+	set streaming(value: boolean) {
+		chatStore.stream.isDone = !value;
+	},
 
 	get error() {
 		return chatStore.stream.error;
@@ -130,5 +131,19 @@ export const streamStore = {
 	},
 	set lastSeqNumber(value: number) {
 		chatStore.stream.lastSeqNumber = value;
+	},
+
+	get wasCancelled() {
+		return chatStore.stream.wasCancelled;
+	},
+	set wasCancelled(value: boolean) {
+		chatStore.stream.wasCancelled = value;
+	},
+
+	get activePlan() {
+		return chatStore.stream.activePlan;
+	},
+	set activePlan(value: SessionPlan | null) {
+		chatStore.stream.activePlan = value;
 	}
 };

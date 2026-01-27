@@ -37,10 +37,35 @@
 	}
 
 	@keyframes glitch-malfunction {
-		0%, 85%, 100% { transform: translate(0); filter: none; opacity: 1; }
-		86% { transform: translate(-3px, 1px); filter: hue-rotate(90deg) brightness(1.5); clip-path: inset(10% 0 40% 0); opacity: 0.8; }
-		87% { transform: translate(3px, -1px); filter: hue-rotate(-90deg) saturate(3); clip-path: inset(40% 0 10% 0); opacity: 0.9; }
-		88% { transform: translate(-1px, 3px); filter: contrast(2) invert(0.1); opacity: 0.7; }
-		89% { transform: translate(0); filter: none; clip-path: none; opacity: 1; }
+		0%,
+		85%,
+		100% {
+			transform: translate(0);
+			filter: none;
+			opacity: 1;
+		}
+		86% {
+			transform: translate(-3px, 1px);
+			filter: hue-rotate(90deg) brightness(1.5);
+			clip-path: inset(10% 0 40% 0);
+			opacity: 0.8;
+		}
+		87% {
+			transform: translate(3px, -1px);
+			filter: hue-rotate(-90deg) saturate(3);
+			clip-path: inset(40% 0 10% 0);
+			opacity: 0.9;
+		}
+		88% {
+			transform: translate(-1px, 3px);
+			filter: contrast(2) invert(0.1);
+			opacity: 0.7;
+		}
+		89% {
+			transform: translate(0);
+			filter: none;
+			clip-path: none;
+			opacity: 1;
+		}
 	}
 </style>

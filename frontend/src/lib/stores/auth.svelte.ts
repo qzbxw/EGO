@@ -12,12 +12,18 @@ function getStorageItem(key: string): string | null {
 }
 
 // Initialize reactive state
-let user = $state<User | null>(browser ? (() => {
-    try {
-        const val = localStorage.getItem('user');
-        return val ? JSON.parse(val) : null;
-    } catch { return null; }
-})() : null);
+let user = $state<User | null>(
+	browser
+		? (() => {
+				try {
+					const val = localStorage.getItem('user');
+					return val ? JSON.parse(val) : null;
+				} catch {
+					return null;
+				}
+			})()
+		: null
+);
 
 let accessToken = $state<string | null>(getStorageItem('accessToken'));
 let refreshToken = $state<string | null>(getStorageItem('refreshToken'));
@@ -64,11 +70,13 @@ export function clearAuthData() {
 	}
 }
 
-export function logout() {
+export async function logout() {
 	clearAuthData();
 	try {
-		if (browser) goto('/login');
-	} catch {}
+		if (browser) await goto('/login');
+	} catch (e) {
+		console.error('Logout navigation failed:', e);
+	}
 }
 
 export function initAuthStore() {

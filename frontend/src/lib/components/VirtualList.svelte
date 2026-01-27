@@ -1,5 +1,6 @@
-<script lang="ts">
-	import { onMount, tick } from 'svelte';
+<script lang="ts" generics="T extends { id?: string | number }">
+	import { onMount, tick, type Snippet } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	let {
 		items = [],
@@ -7,19 +8,17 @@
 		overscan = 3,
 		children
 	}: {
-		items: any[];
+		items: T[];
 		estimatedItemHeight?: number;
 		overscan?: number;
-		children: any;
+		children: Snippet<[T, number]>;
 	} = $props();
 
 	let scrollContainer: HTMLDivElement | undefined = $state();
 	let scrollTop = $state(0);
 	let containerHeight = $state(0);
-	let itemHeights = $state<Map<number, number>>(new Map());
+	let itemHeights = new SvelteMap<number, number>();
 	let totalHeight = $state(0);
-	let scrollDirection = $state<'up' | 'down' | 'idle'>('idle');
-	let lastScrollTop = $state(0);
 	let isScrolling = $state(false);
 	let scrollTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -81,7 +80,6 @@
 			const height = el.getBoundingClientRect().height;
 			if (height > 0 && itemHeights.get(index) !== height) {
 				itemHeights.set(index, height);
-				itemHeights = new Map(itemHeights); // Trigger reactivity
 			}
 		});
 	}
@@ -90,8 +88,6 @@
 	function handleScroll(e: Event) {
 		if (e.target instanceof HTMLElement) {
 			const newScrollTop = e.target.scrollTop;
-			scrollDirection = newScrollTop > lastScrollTop ? 'down' : 'up';
-			lastScrollTop = newScrollTop;
 			scrollTop = newScrollTop;
 
 			// Флаг для состояния скролла
@@ -99,7 +95,6 @@
 			if (scrollTimeout) clearTimeout(scrollTimeout);
 			scrollTimeout = setTimeout(() => {
 				isScrolling = false;
-				scrollDirection = 'idle';
 			}, 150);
 		}
 
@@ -137,7 +132,11 @@
 		return () => {
 			resizeObserver.disconnect();
 			if (scrollTimeout) clearTimeout(scrollTimeout);
-			scrollContainer?.removeEventListener('scroll', handleScroll, passiveOptions as any);
+			scrollContainer?.removeEventListener(
+				'scroll',
+				handleScroll,
+				passiveOptions as EventListenerOptions
+			);
 		};
 	});
 

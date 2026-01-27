@@ -35,6 +35,7 @@ type SessionHandler struct {
 	S3Service *storage.S3Service
 	LLMClient interface {
 		DeleteSessionVectors(ctx context.Context, userID, sessionUUID string) error
+		ClearMemory(ctx context.Context, userID string) error
 	}
 }
 
@@ -244,6 +245,20 @@ func (h *SessionHandler) ClearAllSessions(w http.ResponseWriter, r *http.Request
 		RespondWithError(w, http.StatusInternalServerError, "Failed to delete all sessions")
 		return
 	}
+
+	// Trigger background deletion of ALL memory vectors for this user
+	if h.LLMClient != nil {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			if err := h.LLMClient.ClearMemory(ctx, fmt.Sprintf("%d", user.ID)); err != nil {
+				log.Printf("[ClearAllSessions] Failed to clear user memory: %v", err)
+			} else {
+				log.Printf("[ClearAllSessions] Successfully cleared memory for user %d", user.ID)
+			}
+		}()
+	}
+
 	w.WriteHeader(http.StatusNoContent)
 }
 

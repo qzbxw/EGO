@@ -11,14 +11,11 @@
 		Check,
 		X,
 		User,
-		BarChart3,
-		MoreHorizontal,
-		Sparkles
+		BarChart3
 	} from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
 	import { _ } from 'svelte-i18n';
-	import { slide, fade, fly, scale } from 'svelte/transition';
-	import { quintOut, elasticOut, cubicOut } from 'svelte/easing';
+	import { slide, fade, scale } from 'svelte/transition';
 	import { auth, logout } from '$lib/stores/auth.svelte.ts';
 	import {
 		sessions,
@@ -28,7 +25,6 @@
 		updateSession
 	} from '$lib/stores/sessions.svelte.ts';
 	import {
-		uiStore,
 		setShowSettingsModal,
 		setShowUserSettingsModal,
 		setShowUserStatsModal
@@ -49,9 +45,10 @@
 
 	onMount(() => {
 		// Small delay to prioritize main content render
-		setTimeout(() => {
+		const timer = setTimeout(() => {
 			isSessionsMounted = true;
 		}, 100);
+		return () => clearTimeout(timer);
 	});
 
 	let renamingId = $state<string | null>(null);
@@ -59,12 +56,13 @@
 	let renameInput: HTMLInputElement | undefined = $state();
 	$effect(() => {
 		if (renamingId !== null && renameInput) {
-			setTimeout(() => {
+			const timer = setTimeout(() => {
 				renameInput?.focus();
 			}, 0);
+			return () => clearTimeout(timer);
 		}
 	});
-	function handleLogout() {
+	async function handleLogout() {
 		connectionManager.destroyVisibilityHandling();
 		connectionManager.disconnect();
 		clearUserSessions();
@@ -73,7 +71,7 @@
 			sessionStorage.clear();
 		}
 		logout();
-		goto('/login', { replaceState: true });
+		await goto('/login', { replaceState: true });
 	}
 	function confirmDelete(sessionUUID: string, event: MouseEvent) {
 		event.preventDefault();
@@ -85,7 +83,9 @@
 					try {
 						const isCurrentSession = $page.params.sessionID === sessionUUID;
 						await api.delete(`/sessions/${sessionUUID}`);
-						apiPy.deleteSessionVectors(sessionUUID).catch(() => {});
+						apiPy.deleteSessionVectors(sessionUUID).catch(() => {
+							// ignore
+						});
 						toast.success($_('sidebar.session_deleted'));
 						removeSession(sessionUUID);
 						if (isCurrentSession) {
@@ -147,7 +147,7 @@
 			}
 		}
 	}
-	function newChat(e?: Event) {
+	async function newChat(e?: Event) {
 		if (maintenanceStore.isChatMaintenanceActive) return;
 		e?.preventDefault();
 		e?.stopPropagation();
@@ -160,7 +160,7 @@
 		if (isNewChat) return;
 
 		// Optimistic update - clear UI logic if needed, but router will handle the page change
-		goto('/chat/new', { replaceState: true, invalidateAll: false });
+		await goto('/chat/new', { replaceState: true, invalidateAll: false });
 	}
 </script>
 
@@ -173,16 +173,18 @@
 			<div
 				role="button"
 				tabindex="0"
-				class="relative group cursor-pointer outline-none"
-				onclick={() => goto('/chat')}
-				onkeydown={(e) => {
+				class="group relative cursor-pointer outline-none"
+				onclick={async () => await goto('/chat')}
+				onkeydown={async (e) => {
 					if (e.key === 'Enter' || e.key === ' ') {
 						e.preventDefault();
-						goto('/chat');
+						await goto('/chat');
 					}
 				}}
 			>
-				<div class="absolute -inset-2 rounded-full bg-accent/20 blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+				<div
+					class="absolute -inset-2 rounded-full bg-accent/20 opacity-0 blur-lg transition-opacity duration-500 group-hover:opacity-100"
+				></div>
 				<img
 					src={getAppLogo(preferencesStore.theme)}
 					alt="EGO Logo"
@@ -196,32 +198,42 @@
 		<button
 			onclick={newChat}
 			disabled={maintenanceStore.isChatMaintenanceActive}
-			class="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-accent to-accent-hover p-[1px] shadow-lg shadow-accent/20 transition-all duration-300 hover:shadow-accent/40 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:grayscale disabled:hover:shadow-none"
+			class="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-accent to-accent-hover p-[1px] shadow-lg shadow-accent/20 transition-all duration-300 hover:shadow-accent/40 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:grayscale disabled:hover:shadow-none"
 		>
-			<div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
-			<div class="relative flex items-center justify-center gap-2 rounded-[11px] bg-secondary/90 backdrop-blur-sm py-3 text-sm font-bold text-text-primary transition-colors group-hover:bg-transparent group-hover:text-white">
-				<Plus class="h-4 w-4 transition-transform duration-300 group-hover:rotate-90" strokeWidth={3} />
+			<div
+				class="absolute inset-0 translate-x-[-100%] bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-1000 group-hover:translate-x-[100%]"
+			></div>
+			<div
+				class="relative flex items-center justify-center gap-2 rounded-[11px] bg-secondary/90 py-3 text-sm font-bold text-text-primary backdrop-blur-sm transition-colors group-hover:bg-transparent group-hover:text-white"
+			>
+				<Plus
+					class="h-4 w-4 transition-transform duration-300 group-hover:rotate-90"
+					strokeWidth={3}
+				/>
 				<span>{$_('chat.new_chat')}</span>
 			</div>
 		</button>
 	</div>
 
 	<!-- Scrollable List -->
-	<div class="custom-scrollbar flex-1 overflow-y-auto px-3 pb-2 hover:pr-3 transition-[padding]">
+	<div class="custom-scrollbar flex-1 overflow-y-auto px-3 pb-2 transition-[padding] hover:pr-3">
 		<div class="space-y-1">
 			{#if !isSessionsMounted || $isLoading}
 				<div class="px-2 pt-2">
 					<SessionListSkeleton />
 				</div>
 			{:else if !$sessions || $sessions.length === 0}
-				<div class="flex flex-col items-center justify-center px-4 py-12 text-center" in:fade={{ duration: 400 }}>
+				<div
+					class="flex flex-col items-center justify-center px-4 py-12 text-center"
+					in:fade={{ duration: 400 }}
+				>
 					<div class="mb-3 rounded-full bg-tertiary/50 p-3">
 						<MessageSquare class="h-6 w-6 text-text-secondary/50" />
 					</div>
 					<p class="text-sm font-medium text-text-secondary">
 						{$_('sidebar.no_sessions')}
 					</p>
-					<p class="text-xs text-text-secondary/60 mt-1">{$_('sidebar.start_prompt')}</p>
+					<p class="mt-1 text-xs text-text-secondary/60">{$_('sidebar.start_prompt')}</p>
 				</div>
 			{:else}
 				<div class="space-y-1" in:fade={{ duration: 300 }}>
@@ -231,12 +243,11 @@
 						{@const deleteAriaLabel = $_('sidebar.delete_session_aria', {
 							values: { title: session.title }
 						})}
-						
-						<div class="relative group/item">
+
+						<div class="group/item relative">
 							<!-- Active Indicator -->
 							{#if isActive}
 								<div
-									layoutId="active-indicator"
 									class="absolute left-0 top-1/2 h-8 w-[3px] -translate-y-1/2 rounded-r-full bg-accent shadow-[0_0_10px_rgba(var(--color-accent-rgb),0.5)]"
 									in:scale={{ duration: 200, start: 0.5 }}
 								></div>
@@ -244,14 +255,11 @@
 
 							<a
 								href={`/chat/${session.uuid}`}
-								onclick={(e) => {
-									e.preventDefault();
-									goto(`/chat/${session.uuid}`);
-								}}
-								class="group relative flex items-center justify-between rounded-xl px-3 py-3 text-sm transition-all duration-300 ease-out outline-none
-								{isActive 
-									? 'bg-accent/10 text-accent font-medium' 
-									: 'text-text-secondary hover:bg-black/5 dark:hover:bg-white/5 hover:text-text-primary hover:pl-4'}"
+								class="group relative flex items-center justify-between rounded-xl px-3 py-3 text-sm outline-none transition-all duration-300 ease-out
+
+							                            								{isActive
+									? 'bg-accent/10 font-medium text-accent'
+									: 'text-text-secondary hover:bg-black/5 hover:pl-4 hover:text-text-primary dark:hover:bg-white/5'}"
 							>
 								{#if isRenaming}
 									<div
@@ -298,23 +306,33 @@
 									</div>
 								{:else}
 									<div class="flex min-w-0 items-center gap-3 overflow-hidden">
-										<MessageSquare class="h-4 w-4 flex-shrink-0 transition-transform duration-300 group-hover:scale-110 {isActive ? 'text-accent' : 'text-text-secondary/70'}" />
-										<span class="truncate transition-all duration-300 group-hover:translate-x-1">{session.title}</span>
+										<MessageSquare
+											class="h-4 w-4 flex-shrink-0 transition-transform duration-300 group-hover:scale-110 {isActive
+												? 'text-accent'
+												: 'text-text-secondary/70'}"
+										/>
+										<span class="truncate transition-all duration-300 group-hover:translate-x-1"
+											>{session.title}</span
+										>
 									</div>
-									
+
 									<!-- Action Buttons (Hover only) -->
-									<div class="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 opacity-0 transform translate-x-2 transition-all duration-200 group-hover/item:opacity-100 group-hover/item:translate-x-0">
-										<div class="absolute right-0 top-0 h-full w-12 bg-gradient-to-l from-secondary via-secondary/70 to-transparent -z-10 dark:from-secondary dark:via-secondary/80 dark:to-transparent"></div>
+									<div
+										class="absolute right-2 top-1/2 flex -translate-y-1/2 translate-x-2 transform items-center gap-1 opacity-0 transition-all duration-200 group-hover/item:translate-x-0 group-hover/item:opacity-100"
+									>
+										<div
+											class="absolute right-0 top-0 -z-10 h-full w-12 bg-gradient-to-l from-secondary via-secondary/70 to-transparent dark:from-secondary dark:via-secondary/80 dark:to-transparent"
+										></div>
 										<button
 											onclick={(e) => startRenaming(session, e)}
-											class="rounded-lg bg-secondary p-1.5 text-text-secondary backdrop-blur-sm transition-all hover:bg-black/10 dark:hover:bg-white/20 hover:text-text-primary hover:scale-105 active:scale-90 shadow-sm"
+											class="rounded-lg bg-secondary p-1.5 text-text-secondary shadow-sm backdrop-blur-sm transition-all hover:scale-105 hover:bg-black/10 hover:text-text-primary active:scale-90 dark:hover:bg-white/20"
 											title="Rename"
 										>
 											<Pencil class="h-3.5 w-3.5" />
 										</button>
 										<button
 											onclick={(e) => confirmDelete(session.uuid, e)}
-											class="rounded-lg bg-secondary p-1.5 text-text-secondary backdrop-blur-sm transition-all hover:bg-red-500/20 hover:text-red-500 hover:scale-105 active:scale-90 shadow-sm"
+											class="rounded-lg bg-secondary p-1.5 text-text-secondary shadow-sm backdrop-blur-sm transition-all hover:scale-105 hover:bg-red-500/20 hover:text-red-500 active:scale-90"
 											title="Delete"
 											aria-label={deleteAriaLabel}
 										>
@@ -333,37 +351,46 @@
 	<!-- Footer / User Section -->
 	<div class="flex-shrink-0 p-4">
 		{#if auth.user}
-			<div class="overflow-hidden rounded-2xl border border-black/10 bg-tertiary backdrop-blur-md transition-all duration-300 hover:bg-tertiary/90 hover:shadow-lg hover:shadow-black/5 dark:border-white/5 dark:hover:shadow-black/20">
-				
+			<div
+				class="overflow-hidden rounded-2xl border border-black/10 bg-tertiary backdrop-blur-md transition-all duration-300 hover:bg-tertiary/90 hover:shadow-lg hover:shadow-black/5 dark:border-white/5 dark:hover:shadow-black/20"
+			>
 				<!-- Menu Links -->
 				<div class="grid grid-cols-3 gap-[1px] bg-black/10 p-[1px] dark:bg-white/5">
 					<button
 						onclick={() => setShowSettingsModal(true)}
-						class="flex flex-col items-center justify-center gap-1 bg-secondary py-3 transition-colors hover:bg-secondary/80 group"
+						class="group flex flex-col items-center justify-center gap-1 bg-secondary py-3 transition-colors hover:bg-secondary/80"
 						title={$_('chat.instructions_title')}
 					>
-						<Settings class="h-4 w-4 text-text-secondary transition-colors group-hover:text-accent" />
+						<Settings
+							class="h-4 w-4 text-text-secondary transition-colors group-hover:text-accent"
+						/>
 					</button>
 					<button
 						onclick={() => setShowUserSettingsModal(true)}
-						class="flex flex-col items-center justify-center gap-1 bg-secondary py-3 transition-colors hover:bg-secondary/80 group"
+						class="group flex flex-col items-center justify-center gap-1 bg-secondary py-3 transition-colors hover:bg-secondary/80"
 						title={$_('sidebar.user_settings')}
 					>
 						<User class="h-4 w-4 text-text-secondary transition-colors group-hover:text-accent" />
 					</button>
 					<button
 						onclick={() => setShowUserStatsModal(true)}
-						class="flex flex-col items-center justify-center gap-1 bg-secondary py-3 transition-colors hover:bg-secondary/80 group"
+						class="group flex flex-col items-center justify-center gap-1 bg-secondary py-3 transition-colors hover:bg-secondary/80"
 						title={$_('sidebar.user_stats')}
 					>
-						<BarChart3 class="h-4 w-4 text-text-secondary transition-colors group-hover:text-accent" />
+						<BarChart3
+							class="h-4 w-4 text-text-secondary transition-colors group-hover:text-accent"
+						/>
 					</button>
 				</div>
 
 				<!-- User Profile -->
-				<div class="flex items-center justify-between border-t border-black/10 bg-secondary p-3 dark:border-white/5">
+				<div
+					class="flex items-center justify-between border-t border-black/10 bg-secondary p-3 dark:border-white/5"
+				>
 					<div class="flex items-center gap-3 overflow-hidden">
-						<div class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent to-purple-600 text-xs font-bold text-white shadow-inner">
+						<div
+							class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent to-purple-600 text-xs font-bold text-white shadow-inner"
+						>
 							{auth.user.username.substring(0, 2).toUpperCase()}
 						</div>
 						<div class="flex flex-col truncate">
@@ -405,10 +432,35 @@
 	}
 
 	@keyframes glitch-malfunction {
-		0%, 85%, 100% { transform: translate(0); filter: none; opacity: 1; }
-		86% { transform: translate(-3px, 1px); filter: hue-rotate(90deg) brightness(1.5); clip-path: inset(10% 0 40% 0); opacity: 0.8; }
-		87% { transform: translate(3px, -1px); filter: hue-rotate(-90deg) saturate(3); clip-path: inset(40% 0 10% 0); opacity: 0.9; }
-		88% { transform: translate(-1px, 3px); filter: contrast(2) invert(0.1); opacity: 0.7; }
-		89% { transform: translate(0); filter: none; clip-path: none; opacity: 1; }
+		0%,
+		85%,
+		100% {
+			transform: translate(0);
+			filter: none;
+			opacity: 1;
+		}
+		86% {
+			transform: translate(-3px, 1px);
+			filter: hue-rotate(90deg) brightness(1.5);
+			clip-path: inset(10% 0 40% 0);
+			opacity: 0.8;
+		}
+		87% {
+			transform: translate(3px, -1px);
+			filter: hue-rotate(-90deg) saturate(3);
+			clip-path: inset(40% 0 10% 0);
+			opacity: 0.9;
+		}
+		88% {
+			transform: translate(-1px, 3px);
+			filter: contrast(2) invert(0.1);
+			opacity: 0.7;
+		}
+		89% {
+			transform: translate(0);
+			filter: none;
+			clip-path: none;
+			opacity: 1;
+		}
 	}
 </style>

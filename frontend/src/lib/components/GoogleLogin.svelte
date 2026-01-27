@@ -58,7 +58,9 @@
 	$effect(() => {
 		try {
 			renderButton();
-		} catch {}
+		} catch (e) {
+			console.debug('Google login button render failed:', e);
+		}
 	});
 </script>
 

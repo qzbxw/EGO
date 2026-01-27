@@ -1,11 +1,16 @@
 <script lang="ts">
 	import { fade, scale } from 'svelte/transition';
-	import { cubicOut, backOut } from 'svelte/easing';
+	import { cubicOut } from 'svelte/easing';
 	import { X } from '@lucide/svelte';
-	import { preferencesStore } from '$lib/stores/preferences.svelte.ts';
 	import type { Snippet } from 'svelte';
 
-	let { show, title, onclose, children, size = 'lg' } = $props<{
+	let {
+		show,
+		title,
+		onclose,
+		children,
+		size = 'lg'
+	} = $props<{
 		show: boolean;
 		title: string;
 		onclose: () => void;
@@ -41,12 +46,14 @@
 
 		<!-- Modal Container -->
 		<div
-			class="relative flex max-h-[90vh] w-full {sizeClasses[size]} flex-col overflow-hidden rounded-[24px] bg-secondary shadow-2xl ring-1 ring-white/5"
+			class="relative flex max-h-[90vh] w-full {sizeClasses[
+				size as keyof typeof sizeClasses
+			]} flex-col overflow-hidden rounded-[24px] bg-secondary shadow-2xl ring-1 ring-white/5"
 			transition:scale={{ duration: 350, start: 0.96, easing: cubicOut, opacity: 0 }}
 			role="document"
 		>
 			<!-- Header (Seamless) -->
-			<div class="flex shrink-0 items-start justify-between px-8 pt-8 pb-4">
+			<div class="flex shrink-0 items-start justify-between px-8 pb-4 pt-8">
 				<h2 id="modal-title" class="text-3xl font-bold tracking-tight text-text-primary">
 					{title}
 				</h2>

@@ -1,0 +1,41 @@
+#!/usr/bin/env sh
+
+# 🧠 EGO Pre-Commit Hook
+echo ""
+echo "╔═══════════════════════════════════════╗"
+echo "║  🧠 EGO Pre-Commit Check              ║"
+echo "╚═══════════════════════════════════════╝"
+echo ""
+
+# Function to print status
+print_status() {
+  if [ $1 -eq 0 ]; then
+    echo "✅ $2"
+  else
+    echo "❌ $2 FAILED"
+    exit 1
+  fi
+}
+
+# Get staged files
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR)
+
+# Check if there are staged files
+if [ -z "$STAGED_FILES" ]; then
+  echo "⚠️  No staged files to check"
+  exit 0
+fi
+
+echo "🔍 Checking staged files..."
+echo ""
+
+# Run full check
+echo "✅ Running full project checks..."
+make check
+print_status $? "Check"
+
+echo ""
+echo "╔═══════════════════════════════════════╗"
+echo "║  🚀 All checks passed! Ready to go!   ║"
+echo "╚═══════════════════════════════════════╝"
+echo ""

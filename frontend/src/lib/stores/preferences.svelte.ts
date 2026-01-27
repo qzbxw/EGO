@@ -7,7 +7,7 @@ let backgroundSpheres = $state<boolean>(true);
 
 function persist() {
 	if (!browser) return;
-	
+
 	try {
 		localStorage.setItem('pref-theme', theme);
 		localStorage.setItem('pref-background-spheres', backgroundSpheres ? '1' : '0');
@@ -42,7 +42,7 @@ export function loadPreferences(ssrData?: {
 	memoryEnabled?: boolean;
 }) {
 	if (!browser) return;
-	
+
 	try {
 		// Use SSR data if available, otherwise load from localStorage
 		if (ssrData) {

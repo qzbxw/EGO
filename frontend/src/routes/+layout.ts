@@ -4,14 +4,16 @@ import { get as getStore } from 'svelte/store';
 import '$lib/i18n';
 import { redirect, isRedirect } from '@sveltejs/kit';
 import { initAuthStore, auth, setAccessToken } from '$lib/stores/auth.svelte.ts';
-import { connectionManager } from '$lib/connection-manager';
 import { api, ApiError } from '$lib/api';
 import { setInitialSessions } from '$lib/stores/sessions.svelte.ts';
 import type { ChatSession, User } from '$lib/types';
 import '../app.css';
+
 export const load = async ({ data, url }) => {
 	const defaultLocale = data.initialLocale || 'ru';
-	const initLocale = browser ? window.localStorage.getItem('locale') || defaultLocale : defaultLocale;
+	const initLocale = browser
+		? window.localStorage.getItem('locale') || defaultLocale
+		: defaultLocale;
 	// Always set locale in load function to ensure SSR works correctly
 	locale.set(initLocale);
 	await waitLocale();
@@ -21,7 +23,9 @@ export const load = async ({ data, url }) => {
 			if (rawToken) {
 				console.log(' Early capture: found bypass token in URL (not storing yet)');
 			}
-		} catch {}
+		} catch {
+			// ignore
+		}
 		try {
 			const isMaintenancePage = url.pathname === '/maintenance';
 			if (!isMaintenancePage) {
@@ -42,7 +46,9 @@ export const load = async ({ data, url }) => {
 							u.searchParams.delete('bypass_token');
 							u.searchParams.delete('token');
 							window.history.replaceState({}, '', u.toString());
-						} catch {}
+						} catch {
+							// ignore
+						}
 					}
 				} else {
 					hasValidBypass = !!getStoredBypassToken();
@@ -58,23 +64,9 @@ export const load = async ({ data, url }) => {
 			if (isRedirect(e)) {
 				throw e;
 			}
+			console.warn('Maintenance check failed:', e);
 		}
-		try {
-			const pathname = url.pathname;
-			const isPublic = [
-				'/',
-				'/login',
-				'/register',
-				'/knowego',
-				'/terms',
-				'/privacy',
-				'/maintenance'
-			].includes(pathname);
-		} catch (e: unknown) {
-			if (isRedirect(e)) {
-				throw e;
-			}
-		}
+
 		initAuthStore();
 		const pathname = url.pathname;
 		const isProtectedRoute = ![
@@ -86,18 +78,7 @@ export const load = async ({ data, url }) => {
 			'/knowego',
 			'/maintenance'
 		].includes(pathname);
-		{
-			const isMaintenancePage = url.pathname === '/maintenance';
-			const { maintenanceStore } = await import('$lib/stores/maintenance-store.svelte.ts');
-			const isMaintenanceActive = maintenanceStore.isMaintenanceActive;
-			if (
-				!isMaintenancePage &&
-				!isMaintenanceActive &&
-				auth.accessToken
-			) {
-				// No longer needed: connectionManager.connect();
-			}
-		}
+
 		if (isProtectedRoute) {
 			try {
 				if (!auth.accessToken && auth.refreshToken) {
@@ -121,7 +102,9 @@ export const load = async ({ data, url }) => {
 							setAccessToken(res.access_token);
 							return true;
 						}
-					} catch {}
+					} catch {
+						// ignore
+					}
 					return false;
 				};
 				try {
@@ -164,7 +147,7 @@ export const load = async ({ data, url }) => {
 					try {
 						const { toast } = await import('svelte-sonner');
 						toast.error((err as Error)?.message || getStore(_)('errors.generic'));
-					} catch (_) {
+					} catch {
 						console.error('Load error:', (err as Error)?.message || err);
 					}
 				}

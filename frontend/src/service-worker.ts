@@ -60,7 +60,7 @@ async function cacheFirstStrategy(request: Request): Promise<Response> {
 			cache.put(request, response.clone());
 		}
 		return response;
-	} catch (error) {
+	} catch {
 		return new Response('Offline', { status: 503 });
 	}
 }
@@ -77,7 +77,7 @@ async function networkFirstStrategy(request: Request): Promise<Response> {
 			await cleanupCache(CACHE_NAMES.api, API_CACHE_CONFIG);
 		}
 		return response;
-	} catch (error) {
+	} catch {
 		const cached = await caches.match(request);
 		return cached || new Response('Offline', { status: 503 });
 	}
@@ -113,7 +113,7 @@ async function imageStrategy(request: Request): Promise<Response> {
 			await cleanupCache(CACHE_NAMES.images, IMAGE_CACHE_CONFIG);
 		}
 		return response;
-	} catch (error) {
+	} catch {
 		// Возвращаем placeholder если нет кеша
 		return new Response(
 			'<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect fill="#f0f0f0" width="400" height="300"/></svg>',
@@ -121,7 +121,6 @@ async function imageStrategy(request: Request): Promise<Response> {
 		);
 	}
 }
-
 // ===== Event listeners =====
 
 if (isDev) {

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { slide, fade, scale } from 'svelte/transition';
+	import { scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { getModeLogo } from '$lib/config';
 	import { preferencesStore } from '$lib/stores/preferences.svelte.ts';
@@ -8,11 +8,9 @@
 
 	let {
 		chatMode = $bindable('default' as ChatMode),
-		isMobile = false,
 		showInputOptions = $bindable(false)
 	}: {
 		chatMode: ChatMode;
-		isMobile: boolean;
 		showInputOptions: boolean;
 	} = $props();
 
@@ -47,14 +45,18 @@
 	{#if showInputOptions}
 		<div
 			class="absolute bottom-full left-0 z-20 mb-3 min-w-[160px] overflow-hidden rounded-2xl border border-white/10 bg-secondary/80 p-1.5 shadow-[0_10px_40px_rgba(0,0,0,0.25)] backdrop-blur-2xl"
-			transition:scale={{ duration: 200, start: 0.95, easing: cubicOut, transformOrigin: 'bottom left' }}
+			transition:scale={{
+				duration: 200,
+				start: 0.95,
+				easing: cubicOut
+			}}
 		>
 			<div class="flex flex-col gap-0.5">
-				{#each modes as mode}
+				{#each modes as mode (mode.id)}
 					<button
 						onclick={() => toggleMode(mode.id)}
 						class="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all duration-200
-                        {chatMode === mode.id
+			{chatMode === mode.id
 							? 'bg-accent text-white shadow-md shadow-accent/20'
 							: 'text-text-secondary hover:bg-white/10 hover:text-text-primary'}"
 					>
@@ -74,11 +76,10 @@
 			</div>
 		</div>
 	{/if}
-
 	<!-- Trigger Button -->
 	<button
 		onclick={() => (showInputOptions = !showInputOptions)}
-		class="group flex items-center gap-1.5 rounded-xl border border-transparent bg-tertiary/50 pl-2 pr-1.5 py-1.5 transition-all duration-200 hover:bg-tertiary hover:border-white/5 active:scale-95"
+		class="group flex items-center gap-1.5 rounded-xl border border-transparent bg-tertiary/50 py-1.5 pl-2 pr-1.5 transition-all duration-200 hover:border-white/5 hover:bg-tertiary active:scale-95"
 		class:bg-accent={showInputOptions}
 		class:text-white={showInputOptions}
 		title="Select Model Mode"

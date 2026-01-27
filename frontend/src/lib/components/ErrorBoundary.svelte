@@ -5,7 +5,7 @@
 
 	let {
 		children,
-		fallback = null,
+		fallback,
 		onError = null,
 		showDetails = false
 	}: {

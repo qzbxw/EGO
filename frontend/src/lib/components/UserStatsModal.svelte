@@ -88,7 +88,9 @@
 			</div>
 		{:else if stats}
 			<div class="space-y-8">
-				<div class="flex items-center justify-between rounded-2xl bg-secondary/50 p-4 ring-1 ring-white/5">
+				<div
+					class="flex items-center justify-between rounded-2xl bg-secondary/50 p-4 ring-1 ring-white/5"
+				>
 					<div class="flex items-center gap-4">
 						<div
 							class="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-accent to-purple-600 shadow-lg shadow-accent/20"
@@ -106,7 +108,11 @@
 						disabled={isLoading}
 						title={$t('stats.update')}
 					>
-						<RefreshCw class="h-5 w-5 transition-transform group-hover:rotate-180 {isLoading ? 'animate-spin' : ''}" />
+						<RefreshCw
+							class="h-5 w-5 transition-transform group-hover:rotate-180 {isLoading
+								? 'animate-spin'
+								: ''}"
+						/>
 					</button>
 				</div>
 

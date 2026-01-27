@@ -38,7 +38,9 @@
 	});
 	try {
 		marked.setOptions({ gfm: true, breaks: true });
-	} catch {}
+	} catch {
+		// ignore
+	}
 	let { text, invert = false } = $props<{ text: string; invert?: boolean }>();
 	let container: HTMLDivElement | undefined = $state();
 	function getLanguage(className: string): string | null {
@@ -73,12 +75,12 @@
 	async function renderContent() {
 		if (!container) return;
 		if (!text) {
-			container.innerHTML = '';
+			container.innerHTML = ''; // eslint-disable-line svelte/no-dom-manipulating
 			return;
 		}
 		const html = await marked(text, { async: true });
 		if (!container) return;
-		container.innerHTML = html;
+		container.innerHTML = html; // eslint-disable-line svelte/no-dom-manipulating
 		container.querySelectorAll('table').forEach((table) => {
 			const wrap = document.createElement('div');
 			wrap.className = 'overflow-x-auto my-2 rounded-lg border border-tertiary/40';
@@ -103,7 +105,7 @@
 					const result = hljs.highlight(code.textContent || '', { language: langName });
 					code.innerHTML = result.value;
 					code.classList.add('hljs');
-				} catch (e) {
+				} catch {
 					hljs.highlightElement(code as HTMLElement);
 				}
 			} else {

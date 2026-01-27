@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { api } from '$lib/api';
-	let { src, alt, ...rest } = $props<{ src: string; alt: string; [key: string]: any }>();
-	const imageUrlCache: Map<string, string> = window.__egoImageUrlCache || new Map();
-	const imageInflight: Map<string, Promise<string>> = window.__egoImageInflight || new Map();
+	import { SvelteMap } from 'svelte/reactivity';
+	let { src, alt, ...rest } = $props<{ src: string; alt: string; [key: string]: unknown }>();
+	const imageUrlCache = window.__egoImageUrlCache || new SvelteMap<string, string>();
+	const imageInflight = window.__egoImageInflight || new SvelteMap<string, Promise<string>>();
 	window.__egoImageUrlCache = imageUrlCache;
 	window.__egoImageInflight = imageInflight;
 	let objectUrl = $state<string | null>(null);
-	let createdByUs = $state(false);
 	let lastFetchedSrc: string | null = null;
 	let lastRevocableUrl: string | null = null;
 	async function fetchImage(url: string) {
@@ -14,13 +14,11 @@
 		try {
 			if (url.startsWith('blob:') || url.startsWith('data:')) {
 				objectUrl = url;
-				createdByUs = false;
 				return;
 			}
 			const cached = imageUrlCache.get(url);
 			if (cached) {
 				objectUrl = cached;
-				createdByUs = false;
 				return;
 			}
 			let promise = imageInflight.get(url);
@@ -35,16 +33,16 @@
 			}
 			const newObjUrl = await promise;
 			objectUrl = newObjUrl;
-			createdByUs = false;
 			lastRevocableUrl = null;
 			imageInflight.delete(url);
 		} catch (error) {
 			console.error('Failed to fetch authenticated image:', error);
 			objectUrl = null;
-			createdByUs = false;
 			try {
 				imageInflight.delete(url);
-			} catch {}
+			} catch {
+				// ignore
+			}
 		}
 	}
 	$effect(() => {
@@ -52,7 +50,9 @@
 		if (lastRevocableUrl) {
 			try {
 				URL.revokeObjectURL(lastRevocableUrl);
-			} catch {}
+			} catch {
+				// ignore
+			}
 			lastRevocableUrl = null;
 		}
 		lastFetchedSrc = src;
@@ -61,7 +61,9 @@
 			if (lastRevocableUrl) {
 				try {
 					URL.revokeObjectURL(lastRevocableUrl);
-				} catch {}
+				} catch {
+					// ignore
+				}
 				lastRevocableUrl = null;
 			}
 		};

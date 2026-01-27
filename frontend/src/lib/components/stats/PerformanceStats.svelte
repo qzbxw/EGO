@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Clock, Zap, Gauge } from '@lucide/svelte';
+	import { Zap, Gauge } from '@lucide/svelte';
 	import { _ as t, locale } from 'svelte-i18n';
 
 	interface PerformanceStatsData {
@@ -25,18 +25,23 @@
 	// Calculate relative widths for a "bar" visualization
 	const max = stats.max_response_time_ms || 1;
 	const avgWidth = (stats.avg_response_time_ms / max) * 100;
-	const minWidth = (stats.min_response_time_ms / max) * 100;
 </script>
 
-<div class="rounded-2xl border border-tertiary bg-secondary/30 p-6 transition-all hover:bg-secondary/50">
+<div
+	class="rounded-2xl border border-tertiary bg-secondary/30 p-6 transition-all hover:bg-secondary/50"
+>
 	<div class="mb-6 flex items-center justify-between">
 		<div class="flex items-center gap-3">
-			<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/10 text-orange-500">
+			<div
+				class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/10 text-orange-500"
+			>
 				<Gauge class="h-5 w-5" />
 			</div>
 			<span class="font-bold text-text-primary">{$t('stats.performance')}</span>
 		</div>
-		<div class="flex items-center gap-1.5 rounded-lg bg-orange-500/10 px-2.5 py-1 text-[10px] font-black uppercase text-orange-500">
+		<div
+			class="flex items-center gap-1.5 rounded-lg bg-orange-500/10 px-2.5 py-1 text-[10px] font-black uppercase text-orange-500"
+		>
 			<Zap class="h-3 w-3" />
 			Speed
 		</div>
@@ -58,7 +63,9 @@
 
 		<div class="grid grid-cols-2 gap-4">
 			<div class="rounded-xl border border-emerald-500/10 bg-emerald-500/5 p-3">
-				<div class="mb-1 text-[10px] font-bold uppercase text-emerald-500/70">{$t('stats.best')}</div>
+				<div class="mb-1 text-[10px] font-bold uppercase text-emerald-500/70">
+					{$t('stats.best')}
+				</div>
 				<div class="text-lg font-black text-emerald-500">
 					{formatDuration(stats.min_response_time_ms)}
 				</div>

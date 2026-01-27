@@ -1,0 +1,112 @@
+# 🧠 EGO Pre-Commit Configuration
+# Professional pre-commit hooks for code quality
+# Run with: pre-commit run --all-files
+
+repos:
+  # ============================================
+  # 🐍 Python Backend
+  # ============================================
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6
+    hooks:
+      - id: ruff
+        name: 🐍 Ruff Linter (Python)
+        args: [--fix]
+        files: ^backend/python-api/
+      - id: ruff-format
+        name: 🎨 Ruff Format (Python)
+        files: ^backend/python-api/
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.14.1
+    hooks:
+      - id: mypy
+        name: 🔍 MyPy Type Check (Python)
+        files: ^backend/python-api/
+        additional_dependencies: [types-requests, types-PyYAML]
+
+  # ============================================
+  # 🦫 Go Backend
+  # ============================================
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v1.63.4
+    hooks:
+      - id: golangci-lint
+        name: 🦫 GolangCI Lint (Go)
+        files: ^backend/go-api/
+        args: [--config=backend/go-api/.golangci.yml]
+
+  - repo: https://github.com/dnephin/pre-commit-golang
+    rev: v0.5.1
+    hooks:
+      - id: go-fmt
+        name: 🎨 Go Format
+        files: ^backend/go-api/
+      - id: go-vet
+        name: 🔍 Go Vet
+        files: ^backend/go-api/
+      - id: go-mod-tidy
+        name: 📦 Go Mod Tidy
+        files: ^backend/go-api/
+
+  # ============================================
+  # ⚛️ Frontend (Svelte + TypeScript)
+  # ============================================
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v9.18.0
+    hooks:
+      - id: eslint
+        name: ⚛️ ESLint (Frontend)
+        files: ^frontend/.*\.(js|ts|svelte)$
+        args: [--fix, --config, frontend/eslint.config.js]
+        additional_dependencies:
+          - eslint@9.18.0
+          - typescript-eslint@8.48.0
+          - eslint-plugin-svelte@3.13.0
+          - eslint-config-prettier@10.1.8
+
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.3.3
+    hooks:
+      - id: prettier
+        name: 🎨 Prettier (Frontend)
+        files: ^frontend/
+        types_or: [javascript, jsx, ts, tsx, svelte, json, yaml, markdown, css, html]
+
+  # ============================================
+  # 🛡️ Security & General Checks
+  # ============================================
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        name: ✂️ Trim Trailing Whitespace
+      - id: end-of-file-fixer
+        name: 📝 Fix End of Files
+      - id: check-yaml
+        name: 📋 Check YAML
+      - id: check-json
+        name: 📋 Check JSON
+      - id: check-toml
+        name: 📋 Check TOML
+      - id: check-added-large-files
+        name: 🚫 Check Large Files
+        args: [--maxkb=1000]
+      - id: check-merge-conflict
+        name: 🔀 Check Merge Conflicts
+      - id: detect-private-key
+        name: 🔐 Detect Private Keys
+      - id: check-case-conflict
+        name: 📁 Check Case Conflicts
+      - id: mixed-line-ending
+        name: ↩️ Fix Line Endings
+
+  # ============================================
+  # 📝 Commit Messages
+  # ============================================
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v4.1.0
+    hooks:
+      - id: commitizen
+        name: 📝 Check Commit Message
+        stages: [commit-msg]

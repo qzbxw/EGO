@@ -2,7 +2,6 @@
 	import { Check, X, Pencil } from '@lucide/svelte';
 	import { _ } from 'svelte-i18n';
 	import { page } from '$app/stores';
-	import { tick } from 'svelte';
 	import { api } from '$lib/api';
 	import { updateSession } from '$lib/stores/sessions.svelte.ts';
 	import { toast } from 'svelte-sonner';
@@ -11,6 +10,14 @@
 	let { currentSession }: { currentSession: ChatSession | null } = $props();
 	let isRenaming = $state(false);
 	let sessionTitleInput = $state('');
+	let titleInput: HTMLInputElement | undefined = $state();
+
+	$effect(() => {
+		if (isRenaming && titleInput) {
+			titleInput.focus();
+		}
+	});
+
 	function startRenaming() {
 		if (!currentSession) return;
 		isRenaming = true;
@@ -55,6 +62,7 @@
 				<div class="flex items-center gap-2">
 					<input
 						type="text"
+						bind:this={titleInput}
 						bind:value={sessionTitleInput}
 						onkeydown={(e) => {
 							if (e.key === 'Enter') saveTitle();
@@ -62,7 +70,6 @@
 						}}
 						onblur={saveTitle}
 						class="min-w-[200px] border-b-2 border-accent bg-transparent px-1 py-0.5 text-lg font-bold text-text-primary focus:outline-none"
-						autoFocus
 					/>
 					<div class="flex items-center gap-1">
 						<button
@@ -80,12 +87,14 @@
 					</div>
 				</div>
 			{:else}
-				<h1 class="truncate text-lg font-bold tracking-tight text-text-primary/90 transition-colors hover:text-text-primary">
+				<h1
+					class="truncate text-lg font-bold tracking-tight text-text-primary/90 transition-colors hover:text-text-primary"
+				>
 					{currentSession?.title || $_('chat.untitled_session') || 'New Session'}
 				</h1>
 				{#if $page.params?.sessionID && currentSession?.uuid === $page.params.sessionID}
 					<button
-						class="opacity-0 transition-all duration-200 group-hover:opacity-100 focus:opacity-100"
+						class="opacity-0 transition-all duration-200 focus:opacity-100 group-hover:opacity-100"
 						title={$_('chat.rename_session')}
 						onclick={startRenaming}
 					>

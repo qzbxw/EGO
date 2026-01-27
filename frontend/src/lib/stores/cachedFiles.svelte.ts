@@ -1,3 +1,4 @@
+import { SvelteSet } from 'svelte/reactivity';
 import type { CachedFile } from '$lib/types';
 import { browser } from '$app/environment';
 interface CachedFilesStore {
@@ -29,7 +30,7 @@ export const cachedFiles = {
 			store = { sessionUUID, files: newFiles };
 			return;
 		}
-		const existing = new Set(store.files.map((f) => `${f.file_name}-${f.mime_type}`));
+		const existing = new SvelteSet(store.files.map((f) => `${f.file_name}-${f.mime_type}`));
 		const filtered = newFiles.filter((f) => !existing.has(`${f.file_name}-${f.mime_type}`));
 		store = { ...store, files: [...store.files, ...filtered] };
 	},

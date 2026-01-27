@@ -1,32 +1,9 @@
-import type { ChatSession, ChatMessage, SessionPlan } from '$lib/types';
+import type { ChatSession, ChatMessage, SessionPlan, ThoughtStep, ToolAction } from '$lib/types';
 import { browser } from '$app/environment';
-import { debounce } from '$lib/utils/debounce';
 
 // ============================================================================
 // TYPES
 // ============================================================================
-
-export interface ToolAction {
-	callId: string;
-	toolName: string;
-	status: 'running' | 'completed' | 'failed';
-	progress?: string;
-	header?: string;
-}
-
-export interface ThoughtStep {
-	id: string;
-	type: 'thought' | 'tool';
-	header: string;
-	content?: string;
-	reasoning?: string;
-	status?: 'running' | 'completed' | 'failed';
-	toolName?: string;
-	progress?: string;
-	confidence_score?: number;
-	self_critique?: string;
-	plan_status?: string;
-}
 
 interface MessagesState {
 	sessionUUID: string | null;
@@ -87,17 +64,17 @@ let stream = $state<StreamState>({
 });
 
 // UI Lock state
-let uiLock = $state<UILockState>({
+const uiLock = $state<UILockState>({
 	isRegenerating: false,
 	isEditingSaving: false
 });
 
 // Derived states
-let currentSessionMessages = $derived(messagesStore.sessionUUID ? messagesStore.messages : []);
+const currentSessionMessages = $derived(messagesStore.sessionUUID ? messagesStore.messages : []);
 
-let hasActiveSessions = $derived(sessions.length > 0);
+const hasActiveSessions = $derived(sessions.length > 0);
 
-let isUILocked = $derived(uiLock.isRegenerating || uiLock.isEditingSaving || !stream.isDone);
+const isUILocked = $derived(uiLock.isRegenerating || uiLock.isEditingSaving || !stream.isDone);
 
 // ============================================================================
 // SESSIONS ACTIONS
@@ -211,15 +188,15 @@ export const chatStore = {
 		}
 	},
 
-    updateSessionTitle(uuid: string, title: string) {
-        if (browser) {
-            const session = sessions.find((s) => s.uuid === uuid);
-            if (session) {
-                session.title = title;
-                notifyStoreSubscribers();
-            }
-        }
-    },
+	updateSessionTitle(uuid: string, title: string) {
+		if (browser) {
+			const session = sessions.find((s) => s.uuid === uuid);
+			if (session) {
+				session.title = title;
+				notifyStoreSubscribers();
+			}
+		}
+	},
 
 	removeSession(sessionUUID: string) {
 		if (browser) {
@@ -263,10 +240,10 @@ export const chatStore = {
 			// Only update if stream is idle or if it matches
 			if (stream.isDone || !stream.sessionUUID || stream.sessionUUID === sessionUUID) {
 				stream.sessionUUID = sessionUUID;
-                // If switching session, reset plan
-                if (stream.sessionUUID !== sessionUUID) {
-                    stream.activePlan = null;
-                }
+				// If switching session, reset plan
+				if (stream.sessionUUID !== sessionUUID) {
+					stream.activePlan = null;
+				}
 			}
 		}
 	},
@@ -299,7 +276,7 @@ export const chatStore = {
 				messagesStore = { sessionUUID, messages };
 				// Update stream sessionUUID to match
 				stream.sessionUUID = sessionUUID;
-                stream.activePlan = null;
+				stream.activePlan = null;
 			} else {
 				// Otherwise, append messages
 				messagesStore = {
@@ -352,7 +329,7 @@ export const chatStore = {
 				// Usually the log_id applies to the user message. EGO's response is implicitly linked.
 				// But we might want to tag EGO's response with the same logId for regeneration reference.
 
-					messagesStore = {
+				messagesStore = {
 					...messagesStore,
 					messages: [
 						...messagesStore.messages.slice(0, index),
@@ -363,7 +340,7 @@ export const chatStore = {
 
 				// Check if the next message is EGO's optimistic thinking message
 				if (index + 1 < messagesStore.messages.length) {
-					const nextMsg = messagesStore.messages[index+1];
+					const nextMsg = messagesStore.messages[index + 1];
 					if (nextMsg.author === 'ego') {
 						const updatedNext = { ...nextMsg, logId: log_id };
 						messagesStore = {
@@ -492,7 +469,7 @@ export const chatStore = {
 	// Stream actions
 	startStream(sessionUUID: string | null) {
 		if (browser) {
-            const preservePlan = stream.sessionUUID === sessionUUID;
+			const preservePlan = stream.sessionUUID === sessionUUID;
 			stream = {
 				thoughtHeader: '',
 				thoughts: [],
@@ -508,43 +485,43 @@ export const chatStore = {
 				isRecovering: false,
 				recoveredFromRest: false,
 				lastSeqNumber: -1,
-                activePlan: preservePlan ? stream.activePlan : null
+				activePlan: preservePlan ? stream.activePlan : null
 			};
 		}
 	},
 
-resetBuffer() {
-        if (browser) {
-            stream.textStream = '';
-            stream.lastSeqNumber = -1;
-        }
-    },
+	resetBuffer() {
+		if (browser) {
+			stream.textStream = '';
+			stream.lastSeqNumber = -1;
+		}
+	},
 
-    resume(sessionUUID: string, logId: number) {
-        if (browser) {
-            // If we are already streaming this session, ignore
-            if (!stream.isDone && stream.sessionUUID === sessionUUID) return;
+	resume(sessionUUID: string, logId: number) {
+		if (browser) {
+			// If we are already streaming this session, ignore
+			if (!stream.isDone && stream.sessionUUID === sessionUUID) return;
 
-            console.log(`[ChatStore] Resuming stream for session ${sessionUUID}, log ${logId}`);
-            stream = {
-                thoughtHeader: '',
-                thoughts: [],
-                activeTools: [],
-                textStream: '',
-                isDone: false,
-                error: '',
-                sessionUUID,
-                newlyCreatedSessionUUID: null,
-                lastUserMessage: null,
-                wasCancelled: false,
-                currentLogId: logId,
-                isRecovering: true,
-                recoveredFromRest: true,
-                lastSeqNumber: -1,
-                activePlan: stream.sessionUUID === sessionUUID ? stream.activePlan : null
-            };
-        }
-    },
+			console.log(`[ChatStore] Resuming stream for session ${sessionUUID}, log ${logId}`);
+			stream = {
+				thoughtHeader: '',
+				thoughts: [],
+				activeTools: [],
+				textStream: '',
+				isDone: false,
+				error: '',
+				sessionUUID,
+				newlyCreatedSessionUUID: null,
+				lastUserMessage: null,
+				wasCancelled: false,
+				currentLogId: logId,
+				isRecovering: true,
+				recoveredFromRest: true,
+				lastSeqNumber: -1,
+				activePlan: stream.sessionUUID === sessionUUID ? stream.activePlan : null
+			};
+		}
+	},
 
 	setThoughtHeader(header: string) {
 		if (browser) {
@@ -552,12 +529,12 @@ resetBuffer() {
 		}
 	},
 
-    setPlan(plan: SessionPlan | null) {
-        if (browser) {
-            console.log('[ChatStore] Setting plan:', plan);
-            stream.activePlan = plan;
-        }
-    },
+	setPlan(plan: SessionPlan | null) {
+		if (browser) {
+			console.log('[ChatStore] Setting plan:', plan);
+			stream.activePlan = plan;
+		}
+	},
 
 	appendThought(thought: ThoughtStep) {
 		if (browser) {
@@ -567,7 +544,7 @@ resetBuffer() {
 
 	updateThought(id: string, updates: Partial<ThoughtStep>) {
 		if (browser) {
-			const index = stream.thoughts.findIndex(t => t.id === id);
+			const index = stream.thoughts.findIndex((t) => t.id === id);
 			if (index !== -1) {
 				const updated = { ...stream.thoughts[index], ...updates };
 				stream.thoughts = [
@@ -579,7 +556,13 @@ resetBuffer() {
 		}
 	},
 
-	updateToolStatus(callId: string, toolName: string, status: ToolAction['status'], progress?: string, header?: string) {
+	updateToolStatus(
+		callId: string,
+		toolName: string,
+		status: ToolAction['status'],
+		progress?: string,
+		header?: string
+	) {
 		if (browser) {
 			const index = stream.activeTools.findIndex((t) => t.callId === callId);
 			if (index !== -1) {
@@ -590,7 +573,10 @@ resetBuffer() {
 					...stream.activeTools.slice(index + 1)
 				];
 			} else {
-				stream.activeTools = [...stream.activeTools, { callId, toolName, status, progress, header }];
+				stream.activeTools = [
+					...stream.activeTools,
+					{ callId, toolName, status, progress, header }
+				];
 			}
 		}
 	},
@@ -644,11 +630,13 @@ resetBuffer() {
 	applyFinalStreamResult(text: string, cancelled: boolean) {
 		if (!stream.sessionUUID || messagesStore.sessionUUID !== stream.sessionUUID) return;
 
-		let messages = messagesStore.messages;
+		const messages = messagesStore.messages;
 		let targetIndex = -1;
 
 		if (stream.currentLogId) {
-			targetIndex = messages.findIndex(m => m.logId === stream.currentLogId && m.author === 'ego');
+			targetIndex = messages.findIndex(
+				(m) => m.logId === stream.currentLogId && m.author === 'ego'
+			);
 		}
 
 		if (targetIndex === -1) {
@@ -714,7 +702,6 @@ resetBuffer() {
 
 	resetStream() {
 		if (browser) {
-			const prevUUID = stream.sessionUUID;
 			stream = {
 				thoughtHeader: '',
 				thoughts: [],
@@ -729,13 +716,14 @@ resetBuffer() {
 				currentLogId: null,
 				isRecovering: false,
 				recoveredFromRest: false,
-				lastSeqNumber: -1
+				lastSeqNumber: -1,
+				activePlan: null
 			};
 		}
 	},
 
-	tryHydrateFromStorage(sessionUUID: string): boolean {
-        // Disabled hydration from localStorage for now as we rely on backend state
+	tryHydrateFromStorage(): boolean {
+		// Disabled hydration from localStorage for now as we rely on backend state
 		return false;
 	}
 };

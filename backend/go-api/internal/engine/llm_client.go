@@ -150,6 +150,33 @@ func (c *llmClient) DeleteSessionVectors(ctx context.Context, userID, sessionUUI
 	return nil
 }
 
+// ClearMemory notifies the Python service to delete all memory vectors for a user.
+func (c *llmClient) ClearMemory(ctx context.Context, userID string) error {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	payload, _ := json.Marshal(map[string]string{
+		"user_id": userID,
+	})
+	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/clear_memory", bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("failed to create clear memory request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("clear memory request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("clear memory service returned status %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
 // GetEmbedding calls the Python backend to generate a vector embedding for the given text.
 func (c *llmClient) GetEmbedding(ctx context.Context, text string) ([]float64, error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -275,7 +302,7 @@ func (c *llmClient) readThoughtStream(ctx context.Context, body io.ReadCloser, c
 					if output, ok := dataMap["output"].(string); ok && strings.HasPrefix(output, "LOCAL_TOOL_SIGNAL:manage_plan:") {
 						log.Printf("[llmClient] Intercepted plan signal during stream: %s", output)
 						jsonQuery := strings.TrimPrefix(output, "LOCAL_TOOL_SIGNAL:manage_plan:")
-						
+
 						te := newToolExecutor(c, db)
 						localResult, err := te.executePlanManager(jsonQuery, sessionUUID, callback)
 						if err != nil {

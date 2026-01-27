@@ -1,7 +1,6 @@
 import { browser } from '$app/environment';
 import { _ } from 'svelte-i18n';
 import { get } from 'svelte/store';
-import { goto } from '$app/navigation';
 import { memoryStore } from '$lib/stores/memory.svelte.ts';
 import { backendConfig } from '$lib/config';
 import { auth } from '$lib/stores/auth.svelte.ts';
@@ -35,7 +34,7 @@ async function requestWithBase(
 	const { auth } = await import('$lib/stores/auth.svelte.ts');
 	try {
 		const { memoryEnabled } = memoryStore;
-		(window as any).__egoMemoryEnabled = memoryEnabled;
+		window.__egoMemoryEnabled = memoryEnabled;
 	} catch (error) {
 		console.error('[API] Failed to access memoryStore:', error);
 	}
@@ -50,9 +49,10 @@ async function requestWithBase(
 	if (userId) {
 		headers.set('X-User-ID', userId);
 	}
+	let bypassToken: string | null = null;
 	try {
 		const { getStoredBypassToken, storeBypassToken } = await import('$lib/api/maintenance');
-		let bypassToken = getStoredBypassToken();
+		bypassToken = getStoredBypassToken();
 		if (!bypassToken && browser) {
 			try {
 				const params = new URLSearchParams(window.location.search);
@@ -300,7 +300,7 @@ export const apiPy = {
 			});
 			const text = await response.text();
 			return text ? JSON.parse(text) : null;
-		} catch (e) {
+		} catch {
 			return null;
 		}
 	}

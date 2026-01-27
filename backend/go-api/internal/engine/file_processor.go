@@ -181,14 +181,14 @@ func (fp *fileProcessor) vectorizeFiles(ctx context.Context, fileIDs []int64) er
 					log.Printf("[VECTORS] Failed to save chunk for %s: %v", att.FileName, err)
 					continue
 				}
-				
+
 				// Use proper embedding from Python/Gemini
 				vec, err := fp.llmClient.GetEmbedding(ctx, chunkText)
 				if err != nil {
 					log.Printf("[VECTORS] Failed to get embedding for chunk of %s: %v. Falling back to local hash.", att.FileName, err)
 					vec, _ = localEmbedTextFallback(chunkText) // Keep fallback just in case
 				}
-				
+
 				if err := fp.db.SaveFileChunkEmbedding(chunkID, vec); err != nil {
 					log.Printf("[VECTORS] Failed to save chunk embedding for %s: %v", att.FileName, err)
 				}
@@ -203,7 +203,7 @@ func (fp *fileProcessor) vectorizeAndSaveMessage(logID int64, text string) error
 	if strings.TrimSpace(text) == "" {
 		return nil
 	}
-	
+
 	// Use proper embedding from Python/Gemini
 	vec, err := fp.llmClient.GetEmbedding(context.Background(), text)
 	if err != nil {
