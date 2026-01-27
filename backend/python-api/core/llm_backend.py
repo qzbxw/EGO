@@ -27,7 +27,7 @@ try:
 except ImportError as e:
     logging.critical(f"Missing a required LLM library. Please install it. Details: {e}")
     # Assign None to allow the program to load, but it will fail on provider instantiation.
-    anthropic = openai = google_genai = genai_errors = None  # type: ignore
+    anthropic = openai = google_genai = genai_errors = None
 
 # -----------------------------------------------------------------------------
 # --- Safe Error Aliases for google-genai SDK
@@ -416,24 +416,24 @@ class EgoGeminiProvider(LLMProvider):
         )
         try:
             # Type ignore because SDK methods are dynamic and confusing MyPy
-            file_ref = await client.aio.files.upload(file=path, config={"mime_type": mime_type})  # type: ignore
+            file_ref = await client.aio.files.upload(file=path, config={"mime_type": mime_type})
 
             # 3. Wait for processing if necessary
             start_time = time.time()
-            while file_ref.state.name == "PROCESSING":  # type: ignore
+            while file_ref.state.name == "PROCESSING":
                 if time.time() - start_time > 600:  # 10 minute timeout
-                    raise RuntimeError(f"File processing timed out for {file_ref.name}")  # type: ignore
+                    raise RuntimeError(f"File processing timed out for {file_ref.name}")
                 await asyncio.sleep(2)
-                file_ref = await client.aio.files.get(name=file_ref.name)  # type: ignore
+                file_ref = await client.aio.files.get(name=file_ref.name)
 
-            if file_ref.state.name == "FAILED":  # type: ignore
-                raise RuntimeError(f"File processing failed: {file_ref.error.message}")  # type: ignore
+            if file_ref.state.name == "FAILED":
+                raise RuntimeError(f"File processing failed: {file_ref.error.message}")
 
             # 4. Pin this key for the upcoming generate call
             self._preferred_key_var.set(api_key)
             logging.info(f"[UPLOAD] File ready. Key ...{api_key[-4:]} pinned.")
 
-            return types.Part.from_uri(file_ref.uri, mime_type=mime_type)  # type: ignore
+            return types.Part.from_uri(file_ref.uri, mime_type=mime_type)
 
         except Exception as e:
             logging.error(f"[UPLOAD] Failed to upload file: {e}", exc_info=True)
@@ -744,9 +744,9 @@ class EgoGeminiProvider(LLMProvider):
             if hasattr(resp, "embeddings") and resp.embeddings:
                 embedding_obj = resp.embeddings[0]
                 if hasattr(embedding_obj, "values") and embedding_obj.values is not None:
-                    embedding = list(embedding_obj.values)  # type: ignore
+                    embedding = list(embedding_obj.values)
                 else:
-                    embedding = list(embedding_obj)  # type: ignore
+                    embedding = list(embedding_obj)
             elif isinstance(resp, dict) and "embedding" in resp:
                 embedding = resp["embedding"]
             else:
@@ -820,7 +820,7 @@ class EgoGeminiProvider(LLMProvider):
             resp = await client.aio.models.embed_content(
                 model=model_name,
                 contents=texts,
-                config=config,  # type: ignore
+                config=config,
             )
 
             # Extract embeddings
@@ -828,9 +828,9 @@ class EgoGeminiProvider(LLMProvider):
             if hasattr(resp, "embeddings") and resp.embeddings is not None:
                 for embedding_obj in resp.embeddings:
                     if hasattr(embedding_obj, "values") and embedding_obj.values is not None:
-                        embedding = list(embedding_obj.values)  # type: ignore
+                        embedding = list(embedding_obj.values)
                     else:
-                        embedding = list(embedding_obj)  # type: ignore
+                        embedding = list(embedding_obj)
 
                     # Normalize if needed
                     if output_dimensionality < 3072:
@@ -965,8 +965,8 @@ class OpenAIProvider(LLMProvider):
 
             response = await client.chat.completions.create(
                 model=preferred_model,
-                messages=messages,  # type: ignore
-                **({"response_format": response_format} if response_format else {}),  # type: ignore
+                messages=messages,
+                **({"response_format": response_format} if response_format else {}),
             )
             content = response.choices[0].message.content or ""
             usage = response.usage
@@ -1000,10 +1000,10 @@ class OpenAIProvider(LLMProvider):
 
             stream = await client.chat.completions.create(
                 model=model,
-                messages=messages,  # type: ignore
+                messages=messages,
                 stream=True,
             )
-            async for chunk in stream:  # type: ignore
+            async for chunk in stream:
                 if content := chunk.choices[0].delta.content:
                     yield content
         except Exception as e:
@@ -1093,8 +1093,8 @@ class AnthropicProvider(LLMProvider):
 
             response = await client.messages.create(
                 model=preferred_model,
-                messages=messages,  # type: ignore
-                system=system_instruction,  # type: ignore
+                messages=messages,
+                system=system_instruction,
                 max_tokens=4096,  # Anthropic requires max_tokens
             )
             content = "".join(getattr(b, "text", "") for b in response.content)
@@ -1133,9 +1133,9 @@ class AnthropicProvider(LLMProvider):
                 model=model,
                 messages=messages,
                 system=system_instruction,
-                max_tokens=4096,  # type: ignore
+                max_tokens=4096,
             ) as stream:
-                async for text in stream.text_stream:  # type: ignore
+                async for text in stream.text_stream:
                     yield text
         except Exception as e:
             logging.error(f"Anthropic stream failed: {e}", exc_info=True)
@@ -1210,7 +1210,7 @@ class GrokProvider(LLMProvider):
 
             response = await client.chat.completions.create(
                 model=preferred_model,
-                messages=messages,  # type: ignore
+                messages=messages,
             )
             content = response.choices[0].message.content or ""
             usage = response.usage
@@ -1240,10 +1240,10 @@ class GrokProvider(LLMProvider):
 
             stream = await client.chat.completions.create(
                 model=model,
-                messages=messages,  # type: ignore
+                messages=messages,
                 stream=True,
             )
-            async for chunk in stream:  # type: ignore
+            async for chunk in stream:
                 if content := chunk.choices[0].delta.content:
                     yield content
         except Exception as e:
@@ -1305,22 +1305,22 @@ class ExternalGeminiProvider(LLMProvider):
             client = google_genai.Client(api_key=self.api_key)
             logging.info(f"[EXTERNAL UPLOAD] Uploading file {Path(path).name} ({mime_type})")
 
-            file_ref = await client.aio.files.upload(file=path, config={"mime_type": mime_type})  # type: ignore
+            file_ref = await client.aio.files.upload(file=path, config={"mime_type": mime_type})
 
             # Wait for processing
             start_time = time.time()
-            while file_ref.state.name == "PROCESSING":  # type: ignore
-                logging.info(f"[EXTERNAL UPLOAD] File {file_ref.name} is processing...")  # type: ignore
+            while file_ref.state.name == "PROCESSING":
+                logging.info(f"[EXTERNAL UPLOAD] File {file_ref.name} is processing...")
                 if time.time() - start_time > 600:
-                    raise RuntimeError(f"File processing timed out for {file_ref.name}")  # type: ignore
+                    raise RuntimeError(f"File processing timed out for {file_ref.name}")
                 await asyncio.sleep(2)
-                file_ref = await client.aio.files.get(name=file_ref.name)  # type: ignore
+                file_ref = await client.aio.files.get(name=file_ref.name)
 
-            if file_ref.state.name == "FAILED":  # type: ignore
-                raise RuntimeError(f"File processing failed: {file_ref.error.message}")  # type: ignore
+            if file_ref.state.name == "FAILED":
+                raise RuntimeError(f"File processing failed: {file_ref.error.message}")
 
-            logging.info(f"[EXTERNAL UPLOAD] File ready: {file_ref.uri}")  # type: ignore
-            return types.Part.from_uri(file_ref.uri, mime_type=mime_type)  # type: ignore
+            logging.info(f"[EXTERNAL UPLOAD] File ready: {file_ref.uri}")
+            return types.Part.from_uri(file_ref.uri, mime_type=mime_type)
         except Exception as e:
             logging.error(f"[EXTERNAL UPLOAD] Failed: {e}", exc_info=True)
             raise e
@@ -1346,7 +1346,7 @@ class ExternalGeminiProvider(LLMProvider):
             response = await client.aio.models.generate_content(
                 model=preferred_model,
                 contents=prompt_parts,
-                config=gen_cfg,  # type: ignore
+                config=gen_cfg,
             )
             usage = getattr(response, "usage_metadata", None)
             usage_dict = (
@@ -1372,7 +1372,7 @@ class ExternalGeminiProvider(LLMProvider):
             stream = await client.aio.models.generate_content_stream(
                 model=model,
                 contents=prompt,
-                config=kwargs.get("config"),  # type: ignore
+                config=kwargs.get("config"),
             )
             async for chunk in stream:
                 if text := getattr(chunk, "text", None):
@@ -1413,7 +1413,7 @@ PROVIDER_MAP: dict[str, type[LLMProvider]] = {
     "openai": OpenAIProvider,
     "anthropic": AnthropicProvider,
     "grok": GrokProvider,
-    "gemini": ExternalGeminiProvider,  # type: ignore[type-abstract]
+    "gemini": ExternalGeminiProvider,
     "ego": EgoGeminiProvider,
 }
 
