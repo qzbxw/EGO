@@ -56,12 +56,12 @@ jobs:
       - name: 🔍 Check VPS connection
         run: |
           echo "✅ Testing SSH connection..."
-          ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "echo 'Connection successful!'"
+          ssh -p ${{ secrets.SSH_PORT }} -o ServerAliveInterval=60 -o ServerAliveCountMax=10 -o TCPKeepAlive=yes ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "echo 'Connection successful!'"
 
       - name: 📦 Pull latest code on VPS
         run: |
           echo "📦 Pulling latest code..."
-          ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+          ssh -p ${{ secrets.SSH_PORT }} -o ServerAliveInterval=60 -o ServerAliveCountMax=10 -o TCPKeepAlive=yes ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
             cd ${{ secrets.DEPLOY_PATH || '/home/ubuntu/EGO' }}
             echo "Current directory: $(pwd)"
             git fetch origin
@@ -72,7 +72,7 @@ jobs:
       - name: 🐳 Build Docker images
         run: |
           echo "🐳 Building Docker images with cache..."
-          ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+          ssh -p ${{ secrets.SSH_PORT }} -o ServerAliveInterval=60 -o ServerAliveCountMax=10 -o TCPKeepAlive=yes ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
             cd ${{ secrets.DEPLOY_PATH || '/home/ubuntu/EGO' }}
             export DOCKER_BUILDKIT=1
             export COMPOSE_DOCKER_CLI_BUILD=1
@@ -92,7 +92,7 @@ jobs:
       - name: 🔄 Restart services
         run: |
           echo "🔄 Restarting services..."
-          ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+          ssh -p ${{ secrets.SSH_PORT }} -o ServerAliveInterval=60 -o ServerAliveCountMax=10 -o TCPKeepAlive=yes ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
             cd ${{ secrets.DEPLOY_PATH || '/home/ubuntu/EGO' }}
 
             echo "Stopping old containers..."
@@ -107,7 +107,7 @@ jobs:
       - name: 🧹 Cleanup old images
         run: |
           echo "🧹 Cleaning up old Docker images..."
-          ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+          ssh -p ${{ secrets.SSH_PORT }} -o ServerAliveInterval=60 -o ServerAliveCountMax=10 -o TCPKeepAlive=yes ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
             docker image prune -f
             echo "✅ Cleanup complete"
           EOF
@@ -115,7 +115,7 @@ jobs:
       - name: 🔍 Health Check
         run: |
           echo "🔍 Running health checks..."
-          ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+          ssh -p ${{ secrets.SSH_PORT }} -o ServerAliveInterval=60 -o ServerAliveCountMax=10 -o TCPKeepAlive=yes ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
             cd ${{ secrets.DEPLOY_PATH || '/home/ubuntu/EGO' }}
 
             echo ""
@@ -162,14 +162,14 @@ jobs:
             echo "║                                                   ║"
             echo "║  ✅ All services are running!                     ║"
             echo "║                                                   ║"
-            echo "╚═══════════════════════════════════════════════════╝"
+            ╚═══════════════════════════════════════════════════╝"
           EOF
 
       - name: 📊 Show logs (last 50 lines)
         if: always()
         run: |
           echo "📊 Recent logs:"
-          ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+          ssh -p ${{ secrets.SSH_PORT }} -o ServerAliveInterval=60 -o ServerAliveCountMax=10 -o TCPKeepAlive=yes ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
             cd ${{ secrets.DEPLOY_PATH || '/home/ubuntu/EGO' }}
             docker compose logs --tail=50
           EOF
