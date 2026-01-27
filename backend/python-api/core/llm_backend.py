@@ -1413,7 +1413,7 @@ PROVIDER_MAP: dict[str, type[LLMProvider]] = {
     "openai": OpenAIProvider,
     "anthropic": AnthropicProvider,
     "grok": GrokProvider,
-    "gemini": ExternalGeminiProvider,
+    "gemini": ExternalGeminiProvider,  # type: ignore[type-abstract]
     "ego": EgoGeminiProvider,
 }
 
