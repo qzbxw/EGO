@@ -33,6 +33,9 @@ interface ChatRequest {
 }
 
 let activeAbortController: AbortController | null = null;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 3;
+const RECONNECT_DELAY_MS = 2000;
 
 /**
  * Sends a chat message and handles the streaming response.
@@ -134,6 +137,9 @@ export async function sendMessage(req: ChatRequest) {
 			throw new Error('Response body is null');
 		}
 
+		// Reset reconnect attempts on successful connection
+		reconnectAttempts = 0;
+
 		await readStream(response.body);
 	} catch (error: unknown) {
 		if (error instanceof Error && error.name === 'AbortError') {
@@ -143,11 +149,47 @@ export async function sendMessage(req: ChatRequest) {
 		} else {
 			console.error('[Stream] Error:', error);
 			const msg = error instanceof Error ? error.message : 'Network error';
+
+			// Attempt to reconnect on network errors if we have a session UUID
+			if (req.session_uuid && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+				reconnectAttempts++;
+				console.log(
+					`[Stream] Network error, attempting reconnect ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}...`
+				);
+
+				// Set recovering flag to prevent UI from clearing state
+				streamStore.isRecovering = true;
+
+				// Show reconnection toast
+				toast.info(`Reconnecting... (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+
+				// Wait before reconnecting
+				await new Promise((resolve) => setTimeout(resolve, RECONNECT_DELAY_MS));
+
+				// Try to reconnect to the same session
+				try {
+					await reconnectStream(req.session_uuid);
+					streamStore.isRecovering = false;
+					toast.success('Reconnected successfully');
+					return; // Successfully reconnected, exit
+				} catch (reconnectError) {
+					console.error('[Stream] Reconnect failed:', reconnectError);
+					// If this was the last attempt, fall through to show error
+					if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+						streamStore.isRecovering = false;
+						toast.error('Failed to reconnect after multiple attempts');
+					}
+				}
+			}
+
+			// If reconnection failed or not applicable, show error
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			handleEvent({ type: 'error', data: { message: msg } } as any);
 		}
 	} finally {
 		activeAbortController = null;
+		// Reset recovery flag
+		streamStore.isRecovering = false;
 		// Ensure stream is marked as ended if not done explicitly
 		if (streamStore.streaming) {
 			endStream();
@@ -253,6 +295,9 @@ export async function reconnectStream(sessionUUID: string) {
 			streamStore.streaming = false;
 			return;
 		}
+
+		// Reset reconnect attempts on successful reconnection
+		reconnectAttempts = 0;
 
 		await readStream(response.body);
 	} catch (error: unknown) {

@@ -231,8 +231,9 @@
 							chatStore.migrateMessages(oldUUID, newSession.uuid);
 						}
 
-						// Update URL immediately
-						await goto(`/chat/${newSession.uuid}`, { replaceState: true, invalidateAll: false });
+						// Update URL immediately without waiting (non-blocking)
+						// This prevents delays in starting the stream
+						goto(`/chat/${newSession.uuid}`, { replaceState: true, invalidateAll: false });
 					} else {
 						throw new Error('Failed to create session: No UUID returned');
 					}
@@ -546,10 +547,13 @@
 			// If we are actively streaming or just created this session in this client,
 			// favor the in-memory store state to prevent overwriting optimistic messages
 			// with potentially stale server state during navigation/loading.
+			// ALSO: Don't overwrite if we're in the middle of a reconnection attempt
 			if (
 				loadedSessionUUID === sessionID &&
 				currentMessages.length > 0 &&
-				(chatStore.newlyCreatedSessionUUID === sessionID || !streamStore.isDone)
+				(chatStore.newlyCreatedSessionUUID === sessionID ||
+					!streamStore.isDone ||
+					streamStore.isRecovering)
 			) {
 				return;
 			}

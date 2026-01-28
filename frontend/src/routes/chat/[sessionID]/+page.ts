@@ -85,12 +85,13 @@ export const load: PageLoad = async ({
 			messages: []
 		};
 	}
-	if (streamStore.sessionUUID && streamStore.sessionUUID !== sessionID) {
+	// Only clear stream state if we're transitioning to a different session AND the stream is done
+	// This prevents clearing active streams when navigating
+	if (streamStore.sessionUUID && streamStore.sessionUUID !== sessionID && streamStore.isDone) {
 		streamStore.sessionUUID = null;
 		streamStore.currentLogId = null;
 		streamStore.textStream = '';
 		streamStore.thoughtHeader = '';
-		streamStore.isDone = true;
 	}
 	if (sessionID) {
 		tryHydrateFromStorage();
