@@ -439,7 +439,7 @@ class EgoGeminiProvider(LLMProvider):
             if not file_ref.uri:  # type: ignore[union-attr]
                 raise RuntimeError("File uploaded but no URI returned.")
 
-            return types.Part.from_uri(file_ref.uri, mime_type=mime_type)  # type: ignore[union-attr]
+            return cast("Any", types.Part).from_uri(file_uri=file_ref.uri, mime_type=mime_type)  # type: ignore[union-attr]
 
         except Exception as e:
             logging.error(f"[UPLOAD] Failed to upload file: {e}", exc_info=True)
@@ -1334,7 +1334,7 @@ class ExternalGeminiProvider(LLMProvider):
             logging.info(f"[EXTERNAL UPLOAD] File ready: {file_ref.uri}")  # type: ignore[union-attr]
             if not file_ref.uri:  # type: ignore[union-attr]
                 raise RuntimeError("File uploaded but no URI returned.")
-            return types.Part.from_uri(file_ref.uri, mime_type=mime_type)  # type: ignore[union-attr]
+            return cast("Any", types.Part).from_uri(file_uri=file_ref.uri, mime_type=mime_type)  # type: ignore[union-attr]
         except Exception as e:
             logging.error(f"[EXTERNAL UPLOAD] Failed: {e}", exc_info=True)
             raise e
