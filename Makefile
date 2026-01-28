@@ -135,7 +135,7 @@ pre-commit:
 	@echo "$(GREEN)✅ Pre-commit checks passed!$(NC)"
 
 format-check: check
-format:check: check
+format-check-alias: check
 
 # ============================================
 # 🧪 Testing Commands
