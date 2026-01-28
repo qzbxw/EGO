@@ -1,1 +1,1 @@
-make check
+./scripts/check-changed.sh
