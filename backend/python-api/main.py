@@ -353,7 +353,13 @@ try:
     ]
     # --- Conditionally enable the code execution tool based on an environment variable.
     if os.getenv("EGO_ENABLE_CODEEXEC", "0").lower() in ("1", "true", "yes"):
-        tools.append(EgoCodeExec(backend=default_backend))
+        try:
+            tools.append(EgoCodeExec(backend=default_backend))
+        except Exception as e:
+            log.error(
+                f"Failed to initialize EgoCodeExec. Docker might not be accessible: {e}",
+                exc_info=True,
+            )
     # --- Only add the memory tool if the vector memory was successfully initialized.
     if vector_memory:
         tools.append(EgoMemory(vector_memory=vector_memory))
