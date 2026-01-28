@@ -23,8 +23,8 @@ except ImportError:
     logging.error(
         "Google GenAI library not found. Please install it using 'pip install google-genai'"
     )
-    genai = None
-    genai_errors = None
+    genai = None  # type: ignore[assignment]
+    genai_errors = None  # type: ignore[assignment]
 
 # -----------------------------------------------------------------------------
 # --- Local Module Imports

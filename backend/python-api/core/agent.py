@@ -23,9 +23,9 @@ except ImportError:
     logging.error(
         "Google GenAI library not found. Please install it using 'pip install google-genai'"
     )
-    genai = None
-    google_exceptions = None
-    genai_errors = None
+    genai = None  # type: ignore[assignment]
+    google_exceptions = None  # type: ignore[assignment]
+    genai_errors = None  # type: ignore[assignment]
 
 # -----------------------------------------------------------------------------
 # --- Local Module Imports
@@ -658,7 +658,7 @@ class EGO:
             tool_reasoning="",
             tool_calls=[],
             thoughts_header="Processing Error",
-            nextThoughtNeeded=False,
+            next_thought_needed=False,
             confidence_score=0.0,
             self_critique="Persistent API failure.",
             plan_status="failed",
