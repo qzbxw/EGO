@@ -845,7 +845,7 @@ async def generate_thought(request: Request):
     request_data = await request.form()
     # Cast because request_data values can be strings or UploadFiles
     raw_req = request_data.get("request_data")
-    if not isinstance(raw_req, (str, bytes)):
+    if not isinstance(raw_req, str | bytes):
         raise HTTPException(status_code=400, detail="Missing request_data")
 
     ego_req = EgoRequest.parse_raw(raw_req)
