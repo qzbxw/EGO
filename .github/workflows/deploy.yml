@@ -162,7 +162,7 @@ jobs:
             echo "║                                                   ║"
             echo "║  ✅ All services are running!                     ║"
             echo "║                                                   ║"
-            ╚═══════════════════════════════════════════════════╝"
+            echo "╚═══════════════════════════════════════════════════╝"
           EOF
 
       - name: 📊 Show logs (last 50 lines)
