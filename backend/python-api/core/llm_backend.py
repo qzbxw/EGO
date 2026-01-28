@@ -1053,7 +1053,7 @@ class OpenAIProvider(LLMProvider):
             resp = await client.embeddings.create(
                 input=text, model="text-embedding-3-small", dimensions=output_dimensionality
             )
-            return resp.data[0].embedding
+            return resp.data[0].embedding  # type: ignore[no-any-return]
         except Exception as e:
             logging.error(f"OpenAI embed failed: {e}")
             return [0.0] * output_dimensionality
