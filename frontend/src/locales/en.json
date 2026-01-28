@@ -216,7 +216,18 @@
 		"delete_account_desc": "Delete your account along with all sessions, attachments, and vector memory.",
 		"delete_account_button": "Delete account",
 		"delete_account_confirm": "Delete your account and all data? This action is irreversible.",
-		"delete_account_failed": "Failed to delete account"
+		"delete_account_failed": "Failed to delete account",
+		"profile_summary_section": "User Profile",
+		"profile_summary": "Brief information about you",
+		"profile_summary_hint": "EGO automatically creates a brief summary about you based on your conversations. You can view and edit it here.",
+		"profile_summary_placeholder": "Here will be brief information about you that EGO forms automatically based on your conversations...",
+		"profile_summary_saved": "Profile saved!",
+		"profile_summary_save_failed": "Failed to save profile",
+		"profile_summary_cleared": "Profile cleared!",
+		"profile_summary_clear_failed": "Failed to clear profile",
+		"profile_summary_clear_confirm": "Clear profile information? It will be restored automatically based on future conversations.",
+		"save": "Save",
+		"clear": "Clear"
 	},
 	"knowego": {
 		"title": "EGO — AI Assistant",

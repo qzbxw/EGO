@@ -117,3 +117,56 @@ func (h *UserHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	log.Printf("User account %d (%s) deleted successfully.", user.ID, user.Username)
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// GetProfileSummary retrieves the user's profile summary.
+func (h *UserHandler) GetProfileSummary(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value(UserContextKey).(*models.User)
+
+	summary, err := h.DB.GetProfileSummary(user.ID)
+	if err != nil {
+		log.Printf("[UserHandler] Error fetching profile summary for user %d: %v", user.ID, err)
+		RespondWithError(w, http.StatusInternalServerError, "Could not fetch profile summary")
+		return
+	}
+
+	response := map[string]string{
+		"profile_summary": summary,
+	}
+	RespondWithJSON(w, http.StatusOK, response)
+}
+
+// UpdateProfileSummary updates the user's profile summary.
+func (h *UserHandler) UpdateProfileSummary(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value(UserContextKey).(*models.User)
+
+	var req struct {
+		ProfileSummary string `json:"profile_summary"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Invalid JSON format")
+		return
+	}
+
+	if err := h.DB.UpdateProfileSummary(user.ID, req.ProfileSummary); err != nil {
+		log.Printf("[UserHandler] Error updating profile summary for user %d: %v", user.ID, err)
+		RespondWithError(w, http.StatusInternalServerError, "Could not update profile summary")
+		return
+	}
+
+	log.Printf("[UserHandler] Profile summary updated for user %d", user.ID)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ClearProfileSummary clears the user's profile summary.
+func (h *UserHandler) ClearProfileSummary(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value(UserContextKey).(*models.User)
+
+	if err := h.DB.ClearProfileSummary(user.ID); err != nil {
+		log.Printf("[UserHandler] Error clearing profile summary for user %d: %v", user.ID, err)
+		RespondWithError(w, http.StatusInternalServerError, "Could not clear profile summary")
+		return
+	}
+
+	log.Printf("[UserHandler] Profile summary cleared for user %d", user.ID)
+	w.WriteHeader(http.StatusNoContent)
+}

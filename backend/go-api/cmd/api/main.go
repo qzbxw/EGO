@@ -191,6 +191,9 @@ func setupRouter(db *database.DB, cfg *config.AppConfig, authSvc *auth.AuthServi
 			r.Put("/user/settings", userHandler.UpdateSettings)
 			r.Delete("/user/settings", userHandler.DeleteSettings)
 			r.Delete("/user/account", userHandler.DeleteAccount)
+			r.Get("/user/profile-summary", userHandler.GetProfileSummary)
+			r.Put("/user/profile-summary", userHandler.UpdateProfileSummary)
+			r.Delete("/user/profile-summary", userHandler.ClearProfileSummary)
 
 			// Attachments
 			r.Get("/attachments/{logID}/{fileName}", sessionHandler.PreviewAttachment)

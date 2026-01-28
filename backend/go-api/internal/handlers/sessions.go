@@ -246,6 +246,12 @@ func (h *SessionHandler) ClearAllSessions(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Clear the user's profile summary when clearing all sessions
+	if err := h.DB.ClearProfileSummary(user.ID); err != nil {
+		log.Printf("[ClearAllSessions] Failed to clear user profile summary: %v", err)
+		// Non-critical error, continue with memory cleanup
+	}
+
 	// Trigger background deletion of ALL memory vectors for this user
 	if h.LLMClient != nil {
 		go func() {

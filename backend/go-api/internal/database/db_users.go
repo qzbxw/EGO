@@ -97,6 +97,12 @@ func (db *DB) UpdateProfileSummary(userID int, summary string) error {
 	return err
 }
 
+// ClearProfileSummary clears the user's profile summary and resets the timestamp.
+func (db *DB) ClearProfileSummary(userID int) error {
+	_, err := db.Exec(`UPDATE users SET profile_summary = '', last_summary_at = NULL WHERE id = $1`, userID)
+	return err
+}
+
 // GetUsersNeedingSummary finds users who have chatted since their last summary.
 // Logic: users where (last_summary_at IS NULL OR last_chat > last_summary_at)
 // limiting to a batch size to avoid overloading.

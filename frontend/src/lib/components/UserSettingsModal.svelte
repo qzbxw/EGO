@@ -5,9 +5,10 @@
 	import { loadUserSettings } from '$lib/stores/user-settings.svelte.ts';
 	import AppearanceSettings from '$lib/components/settings/AppearanceSettings.svelte';
 	import MemorySettings from '$lib/components/settings/MemorySettings.svelte';
+	import ProfileSummarySettings from '$lib/components/settings/ProfileSummarySettings.svelte';
 	import LLMProviderSettings from '$lib/components/settings/LLMProviderSettings.svelte';
 	import DangerZone from '$lib/components/settings/DangerZone.svelte';
-	import { Palette, Brain, Cpu, AlertTriangle } from '@lucide/svelte';
+	import { Palette, Brain, Cpu, AlertTriangle, User } from '@lucide/svelte';
 
 	let hasLoadedOnOpen = $state(false);
 
@@ -49,6 +50,16 @@
 				<h3 class="text-lg font-bold tracking-tight">{$_('settings.cross_memory')}</h3>
 			</div>
 			<MemorySettings />
+		</section>
+
+		<section>
+			<div class="mb-5 flex items-center gap-3 text-text-primary">
+				<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10">
+					<User class="h-5 w-5 text-accent" />
+				</div>
+				<h3 class="text-lg font-bold tracking-tight">{$_('settings.profile_summary_section')}</h3>
+			</div>
+			<ProfileSummarySettings />
 		</section>
 
 		<section>

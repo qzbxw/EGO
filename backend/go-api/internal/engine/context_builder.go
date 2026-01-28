@@ -65,13 +65,19 @@ func (cb *contextBuilder) build(ctx context.Context, user *models.User, session 
 		log.Printf("[ContextBuilder] Failed to fetch active plan (non-critical): %v", err)
 	}
 
+	// 6. Include user profile summary only if cross-session memory is enabled.
+	var userProfile string
+	if memoryEnabled {
+		userProfile = user.ProfileSummary
+	}
+
 	return &llmContext{
 		chatHistory:      chatHistoryString,
 		allFiles:         allFiles,
 		cachedFiles:      cachedFiles,
 		effectiveHistory: effectiveHistory,
 		currentPlan:      activePlan,
-		userProfile:      user.ProfileSummary,
+		userProfile:      userProfile,
 	}, nil
 }
 
