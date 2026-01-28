@@ -58,6 +58,10 @@ jobs:
       - name: 📦 Install Go dependencies
         run: cd backend/go-api && go mod download
 
+      - name: 🛠️ Install golangci-lint
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.61.0
+
       - name: 🎨 Run linters
         run: make lint
 

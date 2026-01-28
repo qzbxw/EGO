@@ -134,6 +134,9 @@ pre-commit:
 	@$(MAKE) check
 	@echo "$(GREEN)✅ Pre-commit checks passed!$(NC)"
 
+format-check: check
+format:check: check
+
 # ============================================
 # 🧪 Testing Commands
 # ============================================

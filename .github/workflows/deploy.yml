@@ -51,7 +51,7 @@ jobs:
       - name: 📝 Add VPS to known hosts
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
       - name: 🔍 Check VPS connection
         run: |
@@ -151,10 +151,19 @@ jobs:
             fi
 
             # Check postgres
-            if docker compose ps postgres-db | grep -q "healthy"; then
+            if docker compose ps postgres-db | grep -qi "healthy"; then
               echo "✅ PostgreSQL: Healthy"
             else
-              echo "⚠️  PostgreSQL: Starting..."
+              echo "❌ PostgreSQL: Not healthy"
+              exit 1
+            fi
+
+            # Check nginx-proxy
+            if docker compose ps nginx-proxy | grep -qi "Up"; then
+              echo "✅ Nginx Proxy: Running"
+            else
+              echo "❌ Nginx Proxy: Not running"
+              exit 1
             fi
 
             echo ""
