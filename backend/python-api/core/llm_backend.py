@@ -425,7 +425,7 @@ class EgoGeminiProvider(LLMProvider):
                 if time.time() - start_time > 600:  # 10 minute timeout
                     raise RuntimeError(f"File processing timed out for {file_ref.name}")  # type: ignore[union-attr]
                 await asyncio.sleep(2)
-                file_ref = await client.aio.files.get(name=file_ref.name)  # type: ignore[union-attr]
+                file_ref = await client.aio.files.get(name=cast("str", file_ref.name))  # type: ignore[union-attr]
 
             if file_ref.state and file_ref.state.name == "FAILED":  # type: ignore[union-attr]
                 raise RuntimeError(
@@ -439,7 +439,7 @@ class EgoGeminiProvider(LLMProvider):
             if not file_ref.uri:  # type: ignore[union-attr]
                 raise RuntimeError("File uploaded but no URI returned.")
 
-            return types.Part.from_uri(uri=file_ref.uri, mime_type=mime_type)  # type: ignore[union-attr]
+            return types.Part.from_uri(file_ref.uri, mime_type=mime_type)  # type: ignore[union-attr]
 
         except Exception as e:
             logging.error(f"[UPLOAD] Failed to upload file: {e}", exc_info=True)
@@ -832,12 +832,13 @@ class EgoGeminiProvider(LLMProvider):
 
             # Extract embeddings
             embeddings = []
-            if hasattr(resp, "embeddings") and resp.embeddings is not None:
-                for embedding_obj in resp.embeddings:
+            resp_any = cast("Any", resp)
+            if hasattr(resp_any, "embeddings") and resp_any.embeddings is not None:
+                for embedding_obj in resp_any.embeddings:
                     if hasattr(embedding_obj, "values") and embedding_obj.values is not None:
-                        embedding = list(embedding_obj.values)
+                        embedding = list(cast("Any", embedding_obj.values))
                     else:
-                        embedding = list(embedding_obj)
+                        embedding = list(cast("Any", embedding_obj))
 
                     # Normalize if needed
                     if output_dimensionality < 3072:
@@ -970,7 +971,7 @@ class OpenAIProvider(LLMProvider):
                 # --- OpenAI supports JSON mode.
                 response_format = {"type": "json_object"}
 
-            response = await client.chat.completions.create(
+            response = await cast("Any", client.chat.completions).create(
                 model=preferred_model,
                 messages=cast("Any", messages),
                 **({"response_format": response_format} if response_format else {}),
@@ -1052,7 +1053,7 @@ class OpenAIProvider(LLMProvider):
             resp = await client.embeddings.create(
                 input=text, model="text-embedding-3-small", dimensions=output_dimensionality
             )
-            return cast("list[float]", resp.data[0].embedding)
+            return resp.data[0].embedding
         except Exception as e:
             logging.error(f"OpenAI embed failed: {e}")
             return [0.0] * output_dimensionality
@@ -1323,7 +1324,7 @@ class ExternalGeminiProvider(LLMProvider):
                 if time.time() - start_time > 600:
                     raise RuntimeError(f"File processing timed out for {file_ref.name}")  # type: ignore[union-attr]
                 await asyncio.sleep(2)
-                file_ref = await client.aio.files.get(name=file_ref.name)  # type: ignore[union-attr]
+                file_ref = await client.aio.files.get(name=cast("str", file_ref.name))  # type: ignore[union-attr]
 
             if file_ref.state and file_ref.state.name == "FAILED":  # type: ignore[union-attr]
                 raise RuntimeError(
@@ -1333,7 +1334,7 @@ class ExternalGeminiProvider(LLMProvider):
             logging.info(f"[EXTERNAL UPLOAD] File ready: {file_ref.uri}")  # type: ignore[union-attr]
             if not file_ref.uri:  # type: ignore[union-attr]
                 raise RuntimeError("File uploaded but no URI returned.")
-            return types.Part.from_uri(uri=file_ref.uri, mime_type=mime_type)  # type: ignore[union-attr]
+            return types.Part.from_uri(file_ref.uri, mime_type=mime_type)  # type: ignore[union-attr]
         except Exception as e:
             logging.error(f"[EXTERNAL UPLOAD] Failed: {e}", exc_info=True)
             raise e
