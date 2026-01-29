@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
 	import { quintOut } from 'svelte/easing';
+	import { SvelteSet } from 'svelte/reactivity';
 	import {
 		Brain,
 		Code2,
@@ -66,8 +67,8 @@
 
 	let { debate }: { debate: SuperEgoDebate } = $props();
 
-	let expandedRounds = $state<Set<number>>(new Set([1])); // Auto-expand first round
-	let expandedAgents = $state<Set<string>>(new Set());
+	let expandedRounds = $state(new SvelteSet<number>([1])); // Auto-expand first round
+	let expandedAgents = $state(new SvelteSet<string>());
 
 	function toggleRound(roundNumber: number) {
 		if (expandedRounds.has(roundNumber)) {
@@ -75,7 +76,6 @@
 		} else {
 			expandedRounds.add(roundNumber);
 		}
-		expandedRounds = new Set(expandedRounds); // Trigger reactivity
 	}
 
 	function toggleAgent(agentId: string) {
@@ -84,7 +84,6 @@
 		} else {
 			expandedAgents.add(agentId);
 		}
-		expandedAgents = new Set(expandedAgents); // Trigger reactivity
 	}
 
 	function getAgentIcon(role: string) {
@@ -93,10 +92,6 @@
 
 	function getAgentColor(role: string) {
 		return agentConfig[role as keyof typeof agentConfig]?.color || '#6b7280';
-	}
-
-	function getAgentLabel(role: string) {
-		return agentConfig[role as keyof typeof agentConfig]?.label || role;
 	}
 </script>
 
