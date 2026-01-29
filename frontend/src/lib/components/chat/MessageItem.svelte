@@ -10,6 +10,7 @@
 	import MessageBody from '$lib/components/MessageBody.svelte';
 	import StreamingMarkdownLite from '$lib/components/StreamingMarkdownLite.svelte';
 	import ThoughtChain from './ThoughtChain.svelte';
+	import SuperEgoDebate from './SuperEgoDebate.svelte';
 	import LazyImage from '$lib/components/LazyImage.svelte';
 	import MessageActions from '$lib/components/MessageActions.svelte';
 	import type { ChatMessage, StreamStoreState } from '$lib/types';
@@ -97,6 +98,10 @@
 					currentHeader={streamStore.thoughtHeader}
 					isThinking={true}
 				/>
+
+				{#if streamStore.superEgoDebate}
+					<SuperEgoDebate debate={streamStore.superEgoDebate} />
+				{/if}
 
 				{#if streamStore.textStream}
 					<!-- Streaming Text Bubble -->

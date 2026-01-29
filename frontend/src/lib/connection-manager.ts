@@ -568,6 +568,70 @@ function handleEvent(event: WsEvent) {
 			chatStore.resetBuffer();
 			break;
 
+		// SuperEGO multi-agent debate events
+		case 'superego_round_start':
+			if (event.data) {
+				console.log(`[SuperEGO] Round ${event.data.round} started: ${event.data.title}`);
+				chatStore.startSuperEgoRound(event.data.round, event.data.title);
+			}
+			break;
+
+		case 'superego_agent_start':
+			if (event.data) {
+				console.log(
+					`[SuperEGO] Agent ${event.data.agent_name} (${event.data.agent_role}) starting in round ${event.data.round}`
+				);
+				chatStore.startSuperEgoAgent(
+					event.data.round,
+					event.data.agent_name,
+					event.data.agent_role
+				);
+			}
+			break;
+
+		case 'superego_agent_message':
+			if (event.data) {
+				console.log(
+					`[SuperEGO] Agent ${event.data.agent_name} message received (${event.data.message.length} chars)`
+				);
+				chatStore.updateSuperEgoAgentMessage(
+					event.data.round,
+					event.data.agent_name,
+					event.data.message
+				);
+			}
+			break;
+
+		case 'superego_agent_done':
+			if (event.data) {
+				console.log(
+					`[SuperEGO] Agent ${event.data.agent_name} completed in round ${event.data.round}`
+				);
+				chatStore.completeSuperEgoAgent(event.data.round, event.data.agent_name);
+			}
+			break;
+
+		case 'superego_agent_error':
+			if (event.data) {
+				console.log(`[SuperEGO] Agent ${event.data.agent_name} error: ${event.data.error}`);
+				chatStore.errorSuperEgoAgent(event.data.round, event.data.agent_name, event.data.error);
+			}
+			break;
+
+		case 'superego_round_done':
+			if (event.data) {
+				console.log(`[SuperEGO] Round ${event.data.round} completed`);
+				chatStore.completeSuperEgoRound(event.data.round);
+			}
+			break;
+
+		case 'superego_debate_complete':
+			if (event.data) {
+				console.log('[SuperEGO] Debate completed');
+				chatStore.completeSuperEgoDebate(event.data.summary);
+			}
+			break;
+
 		case 'plan_updated':
 			if (event.data) {
 				chatStore.setPlan(event.data);

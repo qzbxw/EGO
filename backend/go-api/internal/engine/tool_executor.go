@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -63,6 +64,8 @@ func (te *toolExecutor) execute(toolCalls []models.ToolCall, callback EventCallb
 
 			if tc.ToolName == "manage_plan" {
 				toolResult, err = te.executePlanManager(tc.ToolQuery, sessionUUID, callback)
+			} else if tc.ToolName == "SuperEGO" {
+				toolResult, err = te.executeSuperEGO(tc.ToolQuery, memEnabled, userID, callback)
 			} else {
 				toolResult, err = te.callPythonTool(tc.ToolName, tc.ToolQuery, memEnabled, userID)
 			}
@@ -76,11 +79,22 @@ func (te *toolExecutor) execute(toolCalls []models.ToolCall, callback EventCallb
 					"error":     err.Error(),
 				}
 			} else {
-				resultsChan <- map[string]interface{}{
-					"type":      "tool_output",
-					"tool_name": tc.ToolName,
-					"call_id":   cid,
-					"output":    toolResult,
+				// For SuperEGO, signals are already sent via callback, no need to send tool_output
+				if tc.ToolName != "SuperEGO" {
+					resultsChan <- map[string]interface{}{
+						"type":      "tool_output",
+						"tool_name": tc.ToolName,
+						"call_id":   cid,
+						"output":    toolResult,
+					}
+				} else {
+					// Send a simple completion signal
+					resultsChan <- map[string]interface{}{
+						"type":      "tool_output",
+						"tool_name": tc.ToolName,
+						"call_id":   cid,
+						"output":    "SuperEGO multi-agent debate completed. See above for full analysis.",
+					}
 				}
 			}
 		}(toolCall, callID)
@@ -264,12 +278,96 @@ func (te *toolExecutor) callPythonTool(toolName, toolQuery string, memEnabled bo
 	return "", fmt.Errorf("key 'result' not found in tool response")
 }
 
+// executeSuperEGO handles the SuperEGO multi-agent debate system.
+// It calls the Python tool, parses the signal output, and streams events to the frontend.
+func (te *toolExecutor) executeSuperEGO(query string, memEnabled bool, userID int, callback EventCallback) (string, error) {
+	log.Printf("[SuperEGO] Starting multi-agent debate...")
+
+	// Call Python tool to get all signals
+	signalsOutput, err := te.callPythonTool("SuperEGO", query, memEnabled, userID)
+	if err != nil {
+		return "", err
+	}
+
+	// Parse signals line by line
+	lines := strings.Split(signalsOutput, "\n")
+	var finalSummary string
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// Parse signal format: SUPEREGO_SIGNAL:{type}:{json_data}
+		if !strings.HasPrefix(line, "SUPEREGO_SIGNAL:") {
+			log.Printf("[SuperEGO] Warning: unexpected line format: %s", line)
+			continue
+		}
+
+		parts := strings.SplitN(line, ":", 3)
+		if len(parts) != 3 {
+			log.Printf("[SuperEGO] Warning: malformed signal: %s", line)
+			continue
+		}
+
+		signalType := parts[1]
+		jsonData := parts[2]
+
+		// Parse JSON payload
+		var payload map[string]interface{}
+		if err := json.Unmarshal([]byte(jsonData), &payload); err != nil {
+			log.Printf("[SuperEGO] Warning: failed to parse JSON payload: %v", err)
+			continue
+		}
+
+		// Map signal types to WebSocket event types
+		var eventType string
+		switch signalType {
+		case "round_start":
+			eventType = "superego_round_start"
+		case "agent_start":
+			eventType = "superego_agent_start"
+		case "agent_message":
+			eventType = "superego_agent_message"
+		case "agent_done":
+			eventType = "superego_agent_done"
+		case "agent_error":
+			eventType = "superego_agent_error"
+		case "round_done":
+			eventType = "superego_round_done"
+		case "debate_complete":
+			eventType = "superego_debate_complete"
+			if summary, ok := payload["summary"].(string); ok {
+				finalSummary = summary
+			}
+		default:
+			log.Printf("[SuperEGO] Warning: unknown signal type: %s", signalType)
+			continue
+		}
+
+		// Send WebSocket event via callback
+		callback(eventType, payload)
+		log.Printf("[SuperEGO] Sent event: %s", eventType)
+	}
+
+	log.Printf("[SuperEGO] Multi-agent debate completed with %d signals processed", len(lines))
+
+	if finalSummary != "" {
+		return fmt.Sprintf("SuperEGO multi-agent debate completed.\n\nConsensus Summary:\n%s", finalSummary), nil
+	}
+
+	return "SuperEGO multi-agent debate completed. See the detailed analysis above.", nil
+}
+
 // getTimeoutForTool returns a specific timeout duration for a given tool name.
 func (te *toolExecutor) getTimeoutForTool(toolName string) time.Duration {
 	// TODO: Move these values to the configuration file.
 	switch toolName {
 	case "EgoTube":
 		return 10 * time.Minute // Longer timeout for video analysis.
+	case "SuperEGO":
+		return 5 * time.Minute // Multi-agent debate needs time
 	case "EgoSearch":
 		return 2 * time.Minute
 	case "EgoCodeExec":

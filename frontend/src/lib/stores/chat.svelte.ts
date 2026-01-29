@@ -5,6 +5,28 @@ import { browser } from '$app/environment';
 // TYPES
 // ============================================================================
 
+interface SuperEgoAgent {
+	name: string;
+	role: 'researcher' | 'solver' | 'critic' | 'optimizer' | 'synthesizer';
+	status: 'running' | 'completed' | 'error';
+	message?: string;
+	error?: string;
+}
+
+interface SuperEgoRound {
+	number: number;
+	title: string;
+	agents: SuperEgoAgent[];
+	completed: boolean;
+}
+
+interface SuperEgoDebate {
+	active: boolean;
+	rounds: SuperEgoRound[];
+	completed: boolean;
+	summary?: string;
+}
+
 interface MessagesState {
 	sessionUUID: string | null;
 	messages: ChatMessage[];
@@ -26,6 +48,7 @@ interface StreamState {
 	recoveredFromRest: boolean;
 	lastSeqNumber: number;
 	activePlan: SessionPlan | null;
+	superEgoDebate: SuperEgoDebate | null;
 }
 
 interface UILockState {
@@ -60,7 +83,8 @@ let stream = $state<StreamState>({
 	isRecovering: false,
 	recoveredFromRest: false,
 	lastSeqNumber: -1,
-	activePlan: null
+	activePlan: null,
+	superEgoDebate: null
 });
 
 // UI Lock state
@@ -717,8 +741,104 @@ export const chatStore = {
 				isRecovering: false,
 				recoveredFromRest: false,
 				lastSeqNumber: -1,
-				activePlan: null
+				activePlan: null,
+				superEgoDebate: null
 			};
+		}
+	},
+
+	// ============================================================================
+	// SUPEREGO ACTIONS
+	// ============================================================================
+
+	startSuperEgoRound(round: number, title: string) {
+		if (browser) {
+			if (!stream.superEgoDebate) {
+				stream.superEgoDebate = {
+					active: true,
+					rounds: [],
+					completed: false
+				};
+			}
+			stream.superEgoDebate.rounds.push({
+				number: round,
+				title,
+				agents: [],
+				completed: false
+			});
+		}
+	},
+
+	startSuperEgoAgent(
+		round: number,
+		agentName: string,
+		agentRole: 'researcher' | 'solver' | 'critic' | 'optimizer' | 'synthesizer'
+	) {
+		if (browser && stream.superEgoDebate) {
+			const roundData = stream.superEgoDebate.rounds.find((r) => r.number === round);
+			if (roundData) {
+				roundData.agents.push({
+					name: agentName,
+					role: agentRole,
+					status: 'running'
+				});
+			}
+		}
+	},
+
+	updateSuperEgoAgentMessage(round: number, agentName: string, message: string) {
+		if (browser && stream.superEgoDebate) {
+			const roundData = stream.superEgoDebate.rounds.find((r) => r.number === round);
+			if (roundData) {
+				const agent = roundData.agents.find((a) => a.name === agentName);
+				if (agent) {
+					agent.message = message;
+				}
+			}
+		}
+	},
+
+	completeSuperEgoAgent(round: number, agentName: string) {
+		if (browser && stream.superEgoDebate) {
+			const roundData = stream.superEgoDebate.rounds.find((r) => r.number === round);
+			if (roundData) {
+				const agent = roundData.agents.find((a) => a.name === agentName);
+				if (agent) {
+					agent.status = 'completed';
+				}
+			}
+		}
+	},
+
+	errorSuperEgoAgent(round: number, agentName: string, error: string) {
+		if (browser && stream.superEgoDebate) {
+			const roundData = stream.superEgoDebate.rounds.find((r) => r.number === round);
+			if (roundData) {
+				const agent = roundData.agents.find((a) => a.name === agentName);
+				if (agent) {
+					agent.status = 'error';
+					agent.error = error;
+				}
+			}
+		}
+	},
+
+	completeSuperEgoRound(round: number) {
+		if (browser && stream.superEgoDebate) {
+			const roundData = stream.superEgoDebate.rounds.find((r) => r.number === round);
+			if (roundData) {
+				roundData.completed = true;
+			}
+		}
+	},
+
+	completeSuperEgoDebate(summary?: string) {
+		if (browser && stream.superEgoDebate) {
+			stream.superEgoDebate.completed = true;
+			stream.superEgoDebate.active = false;
+			if (summary) {
+				stream.superEgoDebate.summary = summary;
+			}
 		}
 	},
 

@@ -248,6 +248,66 @@ export interface WsToolErrorEvent extends WsEventBase {
 	};
 }
 
+export interface WsSuperEgoRoundStartEvent extends WsEventBase {
+	type: 'superego_round_start';
+	data: {
+		round: number;
+		title: string;
+	};
+}
+
+export interface WsSuperEgoAgentStartEvent extends WsEventBase {
+	type: 'superego_agent_start';
+	data: {
+		agent_name: string;
+		agent_role: 'researcher' | 'solver' | 'critic' | 'optimizer' | 'synthesizer';
+		round: number;
+	};
+}
+
+export interface WsSuperEgoAgentMessageEvent extends WsEventBase {
+	type: 'superego_agent_message';
+	data: {
+		agent_name: string;
+		agent_role: 'researcher' | 'solver' | 'critic' | 'optimizer' | 'synthesizer';
+		round: number;
+		message: string;
+	};
+}
+
+export interface WsSuperEgoAgentDoneEvent extends WsEventBase {
+	type: 'superego_agent_done';
+	data: {
+		agent_name: string;
+		agent_role: 'researcher' | 'solver' | 'critic' | 'optimizer' | 'synthesizer';
+		round: number;
+	};
+}
+
+export interface WsSuperEgoAgentErrorEvent extends WsEventBase {
+	type: 'superego_agent_error';
+	data: {
+		agent_name: string;
+		agent_role: string;
+		round: number;
+		error: string;
+	};
+}
+
+export interface WsSuperEgoRoundDoneEvent extends WsEventBase {
+	type: 'superego_round_done';
+	data: {
+		round: number;
+	};
+}
+
+export interface WsSuperEgoDebateCompleteEvent extends WsEventBase {
+	type: 'superego_debate_complete';
+	data: {
+		summary: string;
+	};
+}
+
 export type WsEvent =
 	| WsErrorEvent
 	| WsPongEvent
@@ -265,7 +325,14 @@ export type WsEvent =
 	| WsThoughtEvent
 	| WsToolCallEvent
 	| WsToolOutputEvent
-	| WsToolErrorEvent;
+	| WsToolErrorEvent
+	| WsSuperEgoRoundStartEvent
+	| WsSuperEgoAgentStartEvent
+	| WsSuperEgoAgentMessageEvent
+	| WsSuperEgoAgentDoneEvent
+	| WsSuperEgoAgentErrorEvent
+	| WsSuperEgoRoundDoneEvent
+	| WsSuperEgoDebateCompleteEvent;
 
 export interface PublicStats {
 	total_tokens: number;

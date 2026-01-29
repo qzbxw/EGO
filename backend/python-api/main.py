@@ -38,6 +38,7 @@ from core.tools import (
     EgoTube,
     EgoWiki,
     ManagePlan,
+    SuperEGO,
 )
 from utils.logger import get_logger, setup_logging
 
@@ -350,6 +351,7 @@ try:
         EgoWiki(),
         EgoTube(backend=default_backend),
         ManagePlan(),
+        SuperEGO(backend=default_backend),
     ]
     # --- Conditionally enable the code execution tool based on an environment variable.
     if os.getenv("EGO_ENABLE_CODEEXEC", "0").lower() in ("1", "true", "yes"):

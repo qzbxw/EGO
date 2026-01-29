@@ -35,6 +35,11 @@ from .prompts import (
     ALTER_EGO_PROMPT_EN,
     EGO_SEARCH_PROMPT_EN,
     EGO_TUBE_PROMPT_EN,
+    SUPEREGO_CRITIC_PROMPT,
+    SUPEREGO_OPTIMIZER_PROMPT,
+    SUPEREGO_RESEARCHER_PROMPT,
+    SUPEREGO_SOLVER_PROMPT,
+    SUPEREGO_SYNTHESIZER_PROMPT,
 )
 
 # -----------------------------------------------------------------------------
@@ -509,3 +514,271 @@ class ManagePlan(Tool):
         json_query = query
         logging.info(f"--- ManagePlan: Signal for Go backend: {json_query} ---")
         return f"LOCAL_TOOL_SIGNAL:manage_plan:{json_query}"
+
+
+class SuperEGO(Tool):
+    """
+    Multi-agent debate system for complex reasoning.
+    Spawns multiple specialized agents that discuss the problem and arrive at a consensus.
+
+    This tool emits special signals that Go backend intercepts for streaming visualization.
+    """
+
+    def __init__(self, backend: LLMProvider):
+        super().__init__(
+            name="SuperEGO",
+            desc="Engages multiple specialized AI agents in structured debate for complex problems requiring diverse expert perspectives. Use this for critical decisions, complex implementations, or when you need adversarial analysis.",
+        )
+        self.backend = backend
+
+    def _emit_signal(self, signal_type: str, data: dict) -> str:
+        """
+        Emits a signal that Go backend will intercept and convert to WebSocket event.
+
+        Args:
+            signal_type: Type of signal (round_start, agent_start, agent_message, agent_done, round_done)
+            data: Signal payload
+
+        Returns:
+            Signal string in format: SUPEREGO_SIGNAL:{type}:{json_data}
+        """
+        import json
+
+        signal_data = json.dumps(data, ensure_ascii=False)
+        return f"SUPEREGO_SIGNAL:{signal_type}:{signal_data}"
+
+    async def _run_agent(
+        self,
+        agent_name: str,
+        agent_role: str,
+        agent_prompt: str,
+        query: str,
+        debate_history: str,
+        round_number: int,
+        temperature: float = 0.5,
+    ) -> tuple[str, list[str]]:
+        """
+        Runs a single agent with the given prompt and context.
+
+        Args:
+            agent_name: Display name of the agent (e.g., "Researcher")
+            agent_role: Role identifier (e.g., "researcher", "coder")
+            agent_prompt: System instruction for this agent
+            query: Original user query
+            debate_history: Full conversation history from previous agents
+            round_number: Current debate round (1, 2, or 3)
+            temperature: LLM temperature for this agent
+
+        Returns:
+            Tuple of (agent's response text, list of signals emitted)
+        """
+        logging.info(f"[SuperEGO] Running {agent_name} agent in round {round_number}...")
+
+        signals = []
+
+        # Emit agent start signal
+        signals.append(
+            self._emit_signal(
+                "agent_start",
+                {
+                    "agent_name": agent_name,
+                    "agent_role": agent_role,
+                    "round": round_number,
+                },
+            )
+        )
+
+        # --- Build the full context for this agent
+        full_prompt = f"""
+{agent_prompt}
+
+ORIGINAL QUERY:
+{query}
+
+DEBATE HISTORY (from previous agents):
+{debate_history if debate_history else "[This is the first agent - no prior debate history]"}
+
+YOUR TURN - Provide your analysis:
+"""
+
+        config = genai.types.GenerateContentConfig(
+            temperature=temperature,
+            system_instruction=agent_prompt,
+        )
+
+        try:
+            response_text, _ = await self.backend.generate(
+                preferred_model="gemini-2.5-flash",
+                config=config,
+                prompt_parts=[full_prompt],
+            )
+            logging.info(f"[SuperEGO] {agent_name} completed successfully")
+
+            # Emit agent message signal
+            signals.append(
+                self._emit_signal(
+                    "agent_message",
+                    {
+                        "agent_name": agent_name,
+                        "agent_role": agent_role,
+                        "round": round_number,
+                        "message": response_text,
+                    },
+                )
+            )
+
+            # Emit agent done signal
+            signals.append(
+                self._emit_signal(
+                    "agent_done",
+                    {
+                        "agent_name": agent_name,
+                        "agent_role": agent_role,
+                        "round": round_number,
+                    },
+                )
+            )
+
+            return response_text, signals
+
+        except (genai_errors.ClientError, genai_errors.ServerError) as e:
+            logging.warning(f"[SuperEGO] {agent_name} failed: {e}")
+            error_msg = f"[{agent_name} encountered an error and could not complete the analysis]"
+
+            # Emit error signal
+            signals.append(
+                self._emit_signal(
+                    "agent_error",
+                    {
+                        "agent_name": agent_name,
+                        "agent_role": agent_role,
+                        "round": round_number,
+                        "error": str(e),
+                    },
+                )
+            )
+
+            return error_msg, signals
+
+    async def use(self, query: str, user_id: str | None = None) -> str:
+        """
+        Executes the SuperEGO multi-agent debate with signal emission for frontend streaming.
+
+        Args:
+            query: The problem or question to analyze
+            user_id: Not used by this tool
+
+        Returns:
+            All signals concatenated with newlines for Go backend to parse and stream
+        """
+        logging.info(f"--- SuperEGO: Starting multi-agent debate for query: '{query[:100]}...' ---")
+
+        debate_history = ""
+        all_signals = []
+
+        # === ROUND 1: Initial Analysis ===
+        all_signals.append(
+            self._emit_signal("round_start", {"round": 1, "title": "Initial Analysis"})
+        )
+
+        # Researcher
+        researcher_output, researcher_signals = await self._run_agent(
+            agent_name="Researcher",
+            agent_role="researcher",
+            agent_prompt=SUPEREGO_RESEARCHER_PROMPT,
+            query=query,
+            debate_history=debate_history,
+            round_number=1,
+            temperature=0.3,
+        )
+        all_signals.extend(researcher_signals)
+        debate_history += f"\n\n--- RESEARCHER ---\n{researcher_output}"
+
+        # Solver
+        solver_output, solver_signals = await self._run_agent(
+            agent_name="Solver",
+            agent_role="solver",
+            agent_prompt=SUPEREGO_SOLVER_PROMPT,
+            query=query,
+            debate_history=debate_history,
+            round_number=1,
+            temperature=0.2,
+        )
+        all_signals.extend(solver_signals)
+        debate_history += f"\n\n--- SOLVER ---\n{solver_output}"
+
+        # Critic
+        critic_output, critic_signals = await self._run_agent(
+            agent_name="Critic",
+            agent_role="critic",
+            agent_prompt=SUPEREGO_CRITIC_PROMPT,
+            query=query,
+            debate_history=debate_history,
+            round_number=1,
+            temperature=0.7,
+        )
+        all_signals.extend(critic_signals)
+        debate_history += f"\n\n--- CRITIC ---\n{critic_output}"
+
+        all_signals.append(self._emit_signal("round_done", {"round": 1}))
+
+        # === ROUND 2: Refinement ===
+        all_signals.append(self._emit_signal("round_start", {"round": 2, "title": "Refinement"}))
+
+        # Solver (refined)
+        solver_refined, solver_refined_signals = await self._run_agent(
+            agent_name="Solver",
+            agent_role="solver",
+            agent_prompt=SUPEREGO_SOLVER_PROMPT
+            + "\n\nIMPORTANT: Address the Critic's concerns and refine your solution.",
+            query=query,
+            debate_history=debate_history,
+            round_number=2,
+            temperature=0.2,
+        )
+        all_signals.extend(solver_refined_signals)
+        debate_history += f"\n\n--- SOLVER (Refined) ---\n{solver_refined}"
+
+        # Optimizer
+        optimizer_output, optimizer_signals = await self._run_agent(
+            agent_name="Optimizer",
+            agent_role="optimizer",
+            agent_prompt=SUPEREGO_OPTIMIZER_PROMPT,
+            query=query,
+            debate_history=debate_history,
+            round_number=2,
+            temperature=0.4,
+        )
+        all_signals.extend(optimizer_signals)
+        debate_history += f"\n\n--- OPTIMIZER ---\n{optimizer_output}"
+
+        all_signals.append(self._emit_signal("round_done", {"round": 2}))
+
+        # === ROUND 3: Final Synthesis ===
+        all_signals.append(
+            self._emit_signal("round_start", {"round": 3, "title": "Final Synthesis"})
+        )
+
+        synthesizer_output, synthesizer_signals = await self._run_agent(
+            agent_name="Synthesizer",
+            agent_role="synthesizer",
+            agent_prompt=SUPEREGO_SYNTHESIZER_PROMPT,
+            query=query,
+            debate_history=debate_history,
+            round_number=3,
+            temperature=0.5,
+        )
+        all_signals.extend(synthesizer_signals)
+
+        all_signals.append(self._emit_signal("round_done", {"round": 3}))
+        all_signals.append(
+            self._emit_signal("debate_complete", {"summary": synthesizer_output[:200] + "..."})
+        )
+
+        # Join all signals with newlines - Go backend will parse line by line
+        result = "\n".join(all_signals)
+
+        logging.info(
+            f"[SuperEGO] Multi-agent debate completed with {len(all_signals)} signals emitted"
+        )
+        return result
