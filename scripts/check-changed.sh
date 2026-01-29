@@ -64,7 +64,7 @@ if [ -n "$FE_FILES" ]; then
     echo -e "${YELLOW}⚛️ Checking Frontend files...${NC}"
     # Run eslint if possible
     if [ -f "frontend/node_modules/.bin/eslint" ]; then
-        ./frontend/node_modules/.bin/eslint $FE_FILES --fix --config frontend/eslint.config.js || echo -e "${RED}ESLint failed, but continuing...${NC}"
+        ./frontend/node_modules/.bin/eslint $FE_FILES --fix --config frontend/eslint.config.js --max-warnings=0
     fi
     # Re-add files if we are in commit mode
     if [ "$MODE" == "commit" ]; then
