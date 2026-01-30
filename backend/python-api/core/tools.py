@@ -7,7 +7,7 @@ import re
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import docker
 
@@ -69,7 +69,7 @@ class Tool:
         self.name = name
         self.desc = desc
 
-    async def use(self, query: str, user_id: str | None = None) -> str:
+    async def use(self, query: str, user_id: str | None = None, **kwargs) -> str:
         """
         Executes the tool's primary function with a given query.
 
@@ -80,6 +80,8 @@ class Tool:
             user_id (Optional[str]): The user's unique identifier, which is
                 required for tools that operate on user-specific data, such
                 as memory. Defaults to None.
+            **kwargs: Additional arguments that might be passed by the orchestration layer
+                      (e.g., event_callback for streaming).
 
         Raises:
             NotImplementedError: If a subclass does not implement this method.
@@ -109,7 +111,7 @@ class EgoSearch(Tool):
         )
         self.backend = backend
 
-    async def use(self, query: str, user_id: str | None = None) -> str:
+    async def use(self, query: str, user_id: str | None = None, **kwargs) -> str:
         """
         Executes a Google Search using the Gemini model's built-in tool.
 
@@ -151,7 +153,7 @@ class EgoTube(Tool):
         )
         self.backend = backend
 
-    async def use(self, query: str, user_id: str | None = None) -> str:
+    async def use(self, query: str, user_id: str | None = None, **kwargs) -> str:
         """
         Extracts a YouTube URL from the query and uses Gemini to analyze the video.
 
@@ -226,7 +228,7 @@ class AlterEgo(Tool):
         )
         self.backend = backend
 
-    async def use(self, query: str, user_id: str | None = None) -> str:
+    async def use(self, query: str, user_id: str | None = None, **kwargs) -> str:
         """
         Invokes a different model persona to get a creative or alternative viewpoint.
 
@@ -268,7 +270,7 @@ class EgoCodeExec(Tool):
         self.volume_name = "sandbox_tmp_data"
         self.sandbox_path = "/app/sandbox_tmp"
 
-    async def use(self, query: str, user_id: str | None = None) -> str:
+    async def use(self, query: str, user_id: str | None = None, **kwargs) -> str:
         """
         Executes Python code in a Docker container.
 
@@ -358,7 +360,7 @@ class EgoMemory(Tool):
         )
         self.vector_memory = vector_memory
 
-    async def use(self, query: str, user_id: str | None = None) -> str:
+    async def use(self, query: str, user_id: str | None = None, **kwargs) -> str:
         """
         Performs a semantic search on the user's long-term memory.
 
@@ -412,7 +414,7 @@ class EgoCalc(Tool):
             desc="Performs precise mathematical calculations. Accepts expressions like 'sqrt(8) + 5**3'.",
         )
 
-    async def use(self, query: str, user_id: str | None = None) -> str:
+    async def use(self, query: str, user_id: str | None = None, **kwargs) -> str:
         """
         Safely evaluates a mathematical expression using SymPy.
 
@@ -478,7 +480,7 @@ class EgoWiki(Tool):
             logging.error(f"EgoWiki API call failed for query '{query}'. Error: {e}", exc_info=True)
             return "An external error occurred while trying to contact the Wikipedia API."
 
-    async def use(self, query: str, user_id: str | None = None) -> str:
+    async def use(self, query: str, user_id: str | None = None, **kwargs) -> str:
         """
         Searches for a Wikipedia article in a non-blocking way.
 
@@ -508,7 +510,7 @@ class ManagePlan(Tool):
             desc="STATE MANAGEMENT. Create and track multi-step plans for complex missions.",
         )
 
-    async def use(self, query: str, user_id: str | None = None) -> str:
+    async def use(self, query: str, user_id: str | None = None, **kwargs) -> str:
         """Returns a placeholder that will be intercepted by the Go backend."""
         # --- Ensure the query is a valid JSON string even if the model sent a dict
         json_query = query
@@ -531,13 +533,17 @@ class SuperEGO(Tool):
         )
         self.backend = backend
 
-    def _emit_signal(self, signal_type: str, data: dict) -> str:
+    async def _emit_signal(
+        self, signal_type: str, data: dict, event_callback: Any | None = None
+    ) -> str:
         """
         Emits a signal that Go backend will intercept and convert to WebSocket event.
+        Also streams to event_callback if provided (for Python-native streaming).
 
         Args:
             signal_type: Type of signal (round_start, agent_start, agent_message, agent_done, round_done)
             data: Signal payload
+            event_callback: Optional async callback for real-time streaming
 
         Returns:
             Signal string in format: SUPEREGO_SIGNAL:{type}:{json_data}
@@ -545,6 +551,16 @@ class SuperEGO(Tool):
         import json
 
         signal_data = json.dumps(data, ensure_ascii=False)
+
+        # --- Stream to callback if provided (e.g., from main.py's SSE generator)
+        if event_callback:
+            try:
+                # Map to frontend event type expected by SuperEgoDebate.svelte
+                event_type = f"superego_{signal_type}"
+                await event_callback({"type": event_type, "data": data})
+            except Exception as e:
+                logging.warning(f"[SuperEGO] Failed to invoke event callback: {e}")
+
         return f"SUPEREGO_SIGNAL:{signal_type}:{signal_data}"
 
     async def _run_agent(
@@ -556,6 +572,7 @@ class SuperEGO(Tool):
         debate_history: str,
         round_number: int,
         temperature: float = 0.5,
+        event_callback: Any | None = None,
     ) -> tuple[str, list[str]]:
         """
         Runs a single agent with the given prompt and context.
@@ -568,6 +585,7 @@ class SuperEGO(Tool):
             debate_history: Full conversation history from previous agents
             round_number: Current debate round (1, 2, or 3)
             temperature: LLM temperature for this agent
+            event_callback: Optional callback for streaming
 
         Returns:
             Tuple of (agent's response text, list of signals emitted)
@@ -578,13 +596,14 @@ class SuperEGO(Tool):
 
         # Emit agent start signal
         signals.append(
-            self._emit_signal(
+            await self._emit_signal(
                 "agent_start",
                 {
                     "agent_name": agent_name,
                     "agent_role": agent_role,
                     "round": round_number,
                 },
+                event_callback,
             )
         )
 
@@ -616,7 +635,7 @@ YOUR TURN - Provide your analysis:
 
             # Emit agent message signal
             signals.append(
-                self._emit_signal(
+                await self._emit_signal(
                     "agent_message",
                     {
                         "agent_name": agent_name,
@@ -624,18 +643,20 @@ YOUR TURN - Provide your analysis:
                         "round": round_number,
                         "message": response_text,
                     },
+                    event_callback,
                 )
             )
 
             # Emit agent done signal
             signals.append(
-                self._emit_signal(
+                await self._emit_signal(
                     "agent_done",
                     {
                         "agent_name": agent_name,
                         "agent_role": agent_role,
                         "round": round_number,
                     },
+                    event_callback,
                 )
             )
 
@@ -647,7 +668,7 @@ YOUR TURN - Provide your analysis:
 
             # Emit error signal
             signals.append(
-                self._emit_signal(
+                await self._emit_signal(
                     "agent_error",
                     {
                         "agent_name": agent_name,
@@ -655,30 +676,36 @@ YOUR TURN - Provide your analysis:
                         "round": round_number,
                         "error": str(e),
                     },
+                    event_callback,
                 )
             )
 
             return error_msg, signals
 
-    async def use(self, query: str, user_id: str | None = None) -> str:
+    async def use(self, query: str, user_id: str | None = None, **kwargs) -> str:
         """
         Executes the SuperEGO multi-agent debate with signal emission for frontend streaming.
 
         Args:
             query: The problem or question to analyze
             user_id: Not used by this tool
+            **kwargs: Can contain 'event_callback' for streaming
 
         Returns:
             All signals concatenated with newlines for Go backend to parse and stream
         """
         logging.info(f"--- SuperEGO: Starting multi-agent debate for query: '{query[:100]}...' ---")
 
+        event_callback = kwargs.get("event_callback")
+
         debate_history = ""
         all_signals = []
 
         # === ROUND 1: Initial Analysis ===
         all_signals.append(
-            self._emit_signal("round_start", {"round": 1, "title": "Initial Analysis"})
+            await self._emit_signal(
+                "round_start", {"round": 1, "title": "Initial Analysis"}, event_callback
+            )
         )
 
         # Researcher
@@ -690,6 +717,7 @@ YOUR TURN - Provide your analysis:
             debate_history=debate_history,
             round_number=1,
             temperature=0.3,
+            event_callback=event_callback,
         )
         all_signals.extend(researcher_signals)
         debate_history += f"\n\n--- RESEARCHER ---\n{researcher_output}"
@@ -703,6 +731,7 @@ YOUR TURN - Provide your analysis:
             debate_history=debate_history,
             round_number=1,
             temperature=0.2,
+            event_callback=event_callback,
         )
         all_signals.extend(solver_signals)
         debate_history += f"\n\n--- SOLVER ---\n{solver_output}"
@@ -716,14 +745,19 @@ YOUR TURN - Provide your analysis:
             debate_history=debate_history,
             round_number=1,
             temperature=0.7,
+            event_callback=event_callback,
         )
         all_signals.extend(critic_signals)
         debate_history += f"\n\n--- CRITIC ---\n{critic_output}"
 
-        all_signals.append(self._emit_signal("round_done", {"round": 1}))
+        all_signals.append(await self._emit_signal("round_done", {"round": 1}, event_callback))
 
         # === ROUND 2: Refinement ===
-        all_signals.append(self._emit_signal("round_start", {"round": 2, "title": "Refinement"}))
+        all_signals.append(
+            await self._emit_signal(
+                "round_start", {"round": 2, "title": "Refinement"}, event_callback
+            )
+        )
 
         # Solver (refined)
         solver_refined, solver_refined_signals = await self._run_agent(
@@ -735,6 +769,7 @@ YOUR TURN - Provide your analysis:
             debate_history=debate_history,
             round_number=2,
             temperature=0.2,
+            event_callback=event_callback,
         )
         all_signals.extend(solver_refined_signals)
         debate_history += f"\n\n--- SOLVER (Refined) ---\n{solver_refined}"
@@ -748,15 +783,18 @@ YOUR TURN - Provide your analysis:
             debate_history=debate_history,
             round_number=2,
             temperature=0.4,
+            event_callback=event_callback,
         )
         all_signals.extend(optimizer_signals)
         debate_history += f"\n\n--- OPTIMIZER ---\n{optimizer_output}"
 
-        all_signals.append(self._emit_signal("round_done", {"round": 2}))
+        all_signals.append(await self._emit_signal("round_done", {"round": 2}, event_callback))
 
         # === ROUND 3: Final Synthesis ===
         all_signals.append(
-            self._emit_signal("round_start", {"round": 3, "title": "Final Synthesis"})
+            await self._emit_signal(
+                "round_start", {"round": 3, "title": "Final Synthesis"}, event_callback
+            )
         )
 
         synthesizer_output, synthesizer_signals = await self._run_agent(
@@ -767,12 +805,15 @@ YOUR TURN - Provide your analysis:
             debate_history=debate_history,
             round_number=3,
             temperature=0.5,
+            event_callback=event_callback,
         )
         all_signals.extend(synthesizer_signals)
 
-        all_signals.append(self._emit_signal("round_done", {"round": 3}))
+        all_signals.append(await self._emit_signal("round_done", {"round": 3}, event_callback))
         all_signals.append(
-            self._emit_signal("debate_complete", {"summary": synthesizer_output[:200] + "..."})
+            await self._emit_signal(
+                "debate_complete", {"summary": synthesizer_output[:200] + "..."}, event_callback
+            )
         )
 
         # Join all signals with newlines - Go backend will parse line by line

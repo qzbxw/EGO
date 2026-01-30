@@ -916,6 +916,7 @@ async def generate_thought(request: Request):
                         "EgoCodeExec": 300.0,
                         "EgoWiki": 60.0,
                         "EgoMemory": 45.0,
+                        "SuperEGO": 600.0,
                     }
                     return timeouts.get(tool_name, 60.0)
 
@@ -947,6 +948,13 @@ async def generate_thought(request: Request):
                         }
                     )
 
+                    # --- Callback for real-time tool events (e.g. SuperEGO)
+                    async def emit_event(event_data: dict):
+                        # Ensure the event matches standard format if needed,
+                        # but SuperEGO emits fully formed type/data dicts.
+                        # We wrap it in the standard SSE envelope structure.
+                        await event_queue.put(event_data)
+
                     try:
                         tool = ego_instance.tools.get(tool_name)
                         if not tool:
@@ -955,8 +963,12 @@ async def generate_thought(request: Request):
                         if tool_name == "EgoMemory" and not ego_req.memory_enabled:
                             raise ValueError("Error: Memory is disabled.")
 
+                        # --- Pass event_callback to tool.use
+                        # Tools that don't support it will ignore it via **kwargs
                         result = await asyncio.wait_for(
-                            tool.use(tool_query, user_id=ego_req.user_id),
+                            tool.use(
+                                tool_query, user_id=ego_req.user_id, event_callback=emit_event
+                            ),
                             timeout=get_tool_timeout(tool_name),
                         )
                         result_str = str(result)
