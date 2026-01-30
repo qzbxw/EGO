@@ -342,6 +342,30 @@ class EGO:
             logging.error(f"An unexpected error occurred during summarization: {e}", exc_info=True)
             raise
 
+    def _extract_json_from_text(self, text: str) -> dict[str, Any] | None:
+        """
+        Attempts to extract a JSON object from a string that might contain other text.
+        Finds the first '{' and the last '}' and tries to parse the content between them.
+        """
+        try:
+            # Quick check if it's already valid JSON
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+
+        # Try to find the JSON block
+        try:
+            start_index = text.find("{")
+            end_index = text.rfind("}")
+
+            if start_index != -1 and end_index != -1 and start_index < end_index:
+                json_str = text[start_index : end_index + 1]
+                return json.loads(json_str)
+        except json.JSONDecodeError:
+            pass
+
+        return None
+
     async def generate_thought(
         self,
         query: str,
@@ -591,16 +615,16 @@ class EGO:
                 )
 
                 # --- Safely parse the JSON response.
-                try:
-                    parsed_json = json.loads(response_text)
-                    print(f"[DEBUG] Parsed JSON response: {parsed_json}")
-                    print(
-                        f"[DEBUG] thoughts_header in response: {parsed_json.get('thoughts_header', 'NOT FOUND')}"
+                parsed_json = self._extract_json_from_text(response_text)
+
+                if parsed_json:
+                    logging.info(
+                        f"[THOUGHT GENERATION] Parsed valid JSON. Header: {parsed_json.get('thoughts_header', 'N/A')}"
                     )
                     return parsed_json, usage_metadata
-                except json.JSONDecodeError as je:
+                else:
                     logging.warning(
-                        f"Non-JSON response for generate_thought. Error: {je}. Text: {response_text[:200]}"
+                        f"Non-JSON response for generate_thought. Text: {response_text[:500]}..."
                     )
                     fallback_thought = Thought(
                         thoughts="The model's response was not valid JSON. A safe fallback was generated. Note: provider returned unparsable text.",
