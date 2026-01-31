@@ -250,7 +250,7 @@ func (p *Processor) handleFileUploads(ctx context.Context, req models.StreamRequ
 }
 
 func (p *Processor) runThinkingCycle(ctx context.Context, user *models.User, session *models.ChatSession, req models.StreamRequest, llmCtx *llmContext, callback EventCallback, stats *requestStats) ([]map[string]interface{}, error) {
-	// Increased timeout to 15 minutes to accommodate long-running tools like EgoTube
+	// Increased timeout to 15 minutes to accommodate long-running tools like ego_tube
 	thinkingCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 	defer cancel()
 

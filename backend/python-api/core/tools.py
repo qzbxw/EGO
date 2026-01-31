@@ -34,7 +34,6 @@ from .memory_db import VectorMemory
 from .prompts import (
     ALTER_EGO_PROMPT_EN,
     EGO_SEARCH_PROMPT_EN,
-    EGO_TUBE_PROMPT_EN,
     SUPEREGO_CRITIC_PROMPT,
     SUPEREGO_OPTIMIZER_PROMPT,
     SUPEREGO_RESEARCHER_PROMPT,
@@ -106,7 +105,7 @@ class EgoSearch(Tool):
 
     def __init__(self, backend: LLMProvider):
         super().__init__(
-            name="EgoSearch",
+            name="ego_search",
             desc="Performs a Google Search to find real-time information, news, and facts on the web.",
         )
         self.backend = backend
@@ -122,7 +121,7 @@ class EgoSearch(Tool):
         Returns:
             A string containing the search results, or an error message.
         """
-        logging.info(f"--- EgoSearch: Executing with query: '{query}' ---")
+        logging.info(f"--- ego_search: Executing with query: '{query}' ---")
 
         # --- Configure the model to use its native Google Search capability.
         # Using higher temperature (0.7) for better generalization and result diversity
@@ -136,86 +135,11 @@ class EgoSearch(Tool):
                 preferred_model="gemini-2.5-flash", config=config, prompt_parts=[query]
             )
             resp_len = len(response_text) if response_text else 0
-            logging.info(f"[EgoSearch] Response received, length: {resp_len} chars")
+            logging.info(f"[ego_search] Response received, length: {resp_len} chars")
             return response_text or "Search returned no results."
         except (genai_errors.ClientError, genai_errors.ServerError) as e:
-            logging.warning(f"EgoSearch failed for query '{query}'. API Error: {e}")
+            logging.warning(f"ego_search failed for query '{query}'. API Error: {e}")
             return "Search is temporarily unavailable due to a technical issue. I will proceed without it or you can ask me to try again later."
-
-
-class EgoTube(Tool):
-    """A tool that uses Gemini to analyze and get information from a YouTube video URL."""
-
-    def __init__(self, backend: LLMProvider):
-        super().__init__(
-            name="EgoTube",
-            desc="Analyzes a YouTube video from its URL to answer questions or provide summaries. Example: 'Summarize this video https://www.youtube.com/watch?v=some_id'",
-        )
-        self.backend = backend
-
-    async def use(self, query: str, user_id: str | None = None, **kwargs) -> str:
-        """
-        Extracts a YouTube URL from the query and uses Gemini to analyze the video.
-
-        Args:
-            query: A string containing a YouTube URL and an optional question/command.
-            user_id: Not used by this tool.
-
-        Returns:
-            The model's analysis of the video, or an error message if no URL is found.
-        """
-        logging.info(f"--- EgoTube: Received query: '{query}' ---")
-
-        # --- Attempt to extract URL and clean prompt.
-        # LLMs sometimes wrap tool inputs in quotes or JSON-like structures.
-        clean_query = query.strip().strip('"').strip("'")
-
-        # --- Use a more robust regex to find YouTube URLs.
-        # This handles standard, short, and embed URLs, including those with additional params.
-        yt_regex = (
-            r"https?://(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/)([\w-]+)"
-        )
-        url_match = re.search(yt_regex, clean_query)
-
-        if not url_match:
-            logging.warning(f"EgoTube: No YouTube URL found in query: '{query}'")
-            return "Error: No YouTube URL was found in your request. Please provide a valid link to a YouTube video."
-
-        # Reconstruct clean URL for Gemini API
-        video_id = url_match.group(1)
-        video_url = f"https://www.youtube.com/watch?v={video_id}"
-
-        # --- The prompt is whatever is left of the query after removing the URL and noise.
-        # We remove the matched URL part from the cleaned query.
-        full_match_str = url_match.group(0)
-        prompt_text = clean_query.replace(full_match_str, "").strip()
-
-        # Remove common separators LLMs might insert
-        prompt_text = re.sub(r"^[:\s,-]+", "", prompt_text)
-
-        if not prompt_text:
-            prompt_text = "Briefly summarize the content of this video."
-
-        logging.info(f"[EgoTube] URL: {video_url} | Prompt: {prompt_text}")
-
-        # --- Prepare the multi-modal prompt for the Gemini API.
-        video_part = genai.types.Part(file_data=genai.types.FileData(file_uri=video_url))
-        text_part = genai.types.Part(text=prompt_text)
-
-        config = genai.types.GenerateContentConfig(
-            temperature=0.1, system_instruction=EGO_TUBE_PROMPT_EN
-        )
-
-        try:
-            response_text, _ = await self.backend.generate(
-                preferred_model="gemini-2.5-pro",
-                config=config,
-                prompt_parts=[video_part, text_part],
-            )
-            return response_text
-        except (genai_errors.ClientError, genai_errors.ServerError) as e:
-            logging.warning(f"EgoTube failed for URL '{video_url}'. API Error: {e}")
-            return "Video analysis is currently unavailable due to a technical issue. Please try again later."
 
 
 class AlterEgo(Tool):
@@ -223,7 +147,7 @@ class AlterEgo(Tool):
 
     def __init__(self, backend: LLMProvider):
         super().__init__(
-            name="AlterEgo",
+            name="alter_ego",
             desc="Engages a creative and unconventional persona named 'AlterEgo' to analyze a thought or query from a completely different perspective.",
         )
         self.backend = backend
@@ -239,7 +163,7 @@ class AlterEgo(Tool):
         Returns:
             A response from the AlterEgo persona.
         """
-        logging.info(f"--- AlterEgo: Engaging with query: '{query}' ---")
+        logging.info(f"--- alter_ego: Engaging with query: '{query}' ---")
 
         # --- High temperature for more creative and diverse responses.
         config = genai.types.GenerateContentConfig(
@@ -250,10 +174,10 @@ class AlterEgo(Tool):
             response_text, _ = await self.backend.generate(
                 preferred_model="gemini-2.5-flash-lite", config=config, prompt_parts=[query]
             )
-            logging.info("--- AlterEgo: Response successfully generated. ---")
+            logging.info("--- alter_ego: Response successfully generated. ---")
             return response_text
         except (genai_errors.ClientError, genai_errors.ServerError) as e:
-            logging.warning(f"AlterEgo failed for query '{query}'. API Error: {e}")
+            logging.warning(f"alter_ego failed for query '{query}'. API Error: {e}")
             return "AlterEgo is temporarily unavailable. Reverting to my standard mode of thinking."
 
 
@@ -262,7 +186,7 @@ class EgoCodeExec(Tool):
 
     def __init__(self, backend: LLMProvider | None = None):
         super().__init__(
-            name="EgoCodeExec",
+            name="ego_code_exec",
             desc="Executes Python code in a secure, isolated Docker environment. Supports libraries like numpy, pandas, matplotlib, requests, and more. Use this for complex data analysis, calculations, and simulations.",
         )
         self.client = docker.from_env()
@@ -281,7 +205,7 @@ class EgoCodeExec(Tool):
         Returns:
             The output of the executed code (stdout/stderr) or an error message.
         """
-        logging.info("--- EgoCodeExec: Executing code in Docker sandbox ---")
+        logging.info("--- ego_code_exec: Executing code in Docker sandbox ---")
 
         # --- Prepare the script file
         script_id = str(uuid.uuid4())
@@ -295,7 +219,7 @@ class EgoCodeExec(Tool):
             # --- Write the code to the shared volume
             file_path.write_text(query)
 
-            logging.info(f"[EgoCodeExec] Code written to {file_path}")
+            logging.info(f"[ego_code_exec] Code written to {file_path}")
 
             # --- Run the code in the container
             # We use the named volume 'sandbox_tmp_data' which is shared with the host and other containers
@@ -319,18 +243,18 @@ class EgoCodeExec(Tool):
             try:
                 result = await loop.run_in_executor(None, run_container)
                 output = result.decode("utf-8")
-                logging.info("[EgoCodeExec] Execution successful")
+                logging.info("[ego_code_exec] Execution successful")
                 return output if output.strip() else "Code executed successfully with no output."
             except docker.errors.ContainerError as e:
-                logging.warning(f"[EgoCodeExec] Container error: {e}")
+                logging.warning(f"[ego_code_exec] Container error: {e}")
                 return f"Error during execution:\n{e.stderr.decode('utf-8')}"
             except docker.errors.ImageNotFound:
-                logging.error(f"[EgoCodeExec] Image {self.image_name} not found.")
+                logging.error(f"[ego_code_exec] Image {self.image_name} not found.")
                 return (
                     f"Error: Sandbox image {self.image_name} not found. Please ensure it is built."
                 )
             except Exception as e:
-                logging.error(f"[EgoCodeExec] Unexpected error: {e}", exc_info=True)
+                logging.error(f"[ego_code_exec] Unexpected error: {e}", exc_info=True)
                 return f"An unexpected error occurred during code execution: {e!s}"
 
         finally:
@@ -339,7 +263,7 @@ class EgoCodeExec(Tool):
                 try:
                     file_path.unlink()
                 except Exception as e:
-                    logging.warning(f"[EgoCodeExec] Failed to remove temp file {file_path}: {e}")
+                    logging.warning(f"[ego_code_exec] Failed to remove temp file {file_path}: {e}")
 
 
 # -----------------------------------------------------------------------------
@@ -355,7 +279,7 @@ class EgoMemory(Tool):
 
     def __init__(self, vector_memory: VectorMemory):
         super().__init__(
-            name="EgoMemory",
+            name="ego_memory",
             desc="Searches a vector memory to find relevant information from the user's past conversations.",
         )
         self.vector_memory = vector_memory
@@ -371,10 +295,10 @@ class EgoMemory(Tool):
         Returns:
             A formatted string of relevant memories found, or a message indicating no results.
         """
-        logging.info(f"--- EgoMemory: Searching for user '{user_id}' with query: '{query}' ---")
+        logging.info(f"--- ego_memory: Searching for user '{user_id}' with query: '{query}' ---")
 
         if not user_id:
-            logging.warning("EgoMemory: A search was attempted without a user_id.")
+            logging.warning("ego_memory: A search was attempted without a user_id.")
             return "Error: user_id was not provided, so I cannot access your memory."
 
         try:
@@ -382,7 +306,7 @@ class EgoMemory(Tool):
             hits = await self.vector_memory.search(user_id, query, top_k=5)
         except Exception as e:
             logging.error(
-                f"EgoMemory search failed for user '{user_id}'. Error: {e}", exc_info=True
+                f"ego_memory search failed for user '{user_id}'. Error: {e}", exc_info=True
             )
             return "An unexpected error occurred while searching my memory banks."
 
@@ -410,7 +334,7 @@ class EgoCalc(Tool):
 
     def __init__(self):
         super().__init__(
-            name="EgoCalc",
+            name="ego_calc",
             desc="Performs precise mathematical calculations. Accepts expressions like 'sqrt(8) + 5**3'.",
         )
 
@@ -425,7 +349,7 @@ class EgoCalc(Tool):
         Returns:
             The result of the calculation or a detailed error message.
         """
-        logging.info(f"--- EgoCalc: Evaluating expression: '{query}' ---")
+        logging.info(f"--- ego_calc: Evaluating expression: '{query}' ---")
         try:
             # --- Use sympy.sympify for evaluation.
             # Removing strict=True to be more permissive with whitespace and standard formats.
@@ -445,12 +369,12 @@ class EgoCalc(Tool):
             return f"Error: Could not parse or evaluate the expression '{query}'."
 
 
-class EgoWiki(Tool):
+class EgoKnowledge(Tool):
     """A tool that uses the Wikipedia API to look up factual information."""
 
     def __init__(self):
         super().__init__(
-            name="EgoWiki",
+            name="ego_knowledge",
             desc="Uses Wikipedia to search for precise information, definitions, and summaries of articles.",
         )
         # --- Initialize the API client with a descriptive user agent.
@@ -477,7 +401,9 @@ class EgoWiki(Tool):
             else:
                 return f"The page '{query}' was not found on Wikipedia. Please try a different title or check spelling."
         except Exception as e:
-            logging.error(f"EgoWiki API call failed for query '{query}'. Error: {e}", exc_info=True)
+            logging.error(
+                f"ego_knowledge API call failed for query '{query}'. Error: {e}", exc_info=True
+            )
             return "An external error occurred while trying to contact the Wikipedia API."
 
     async def use(self, query: str, user_id: str | None = None, **kwargs) -> str:
@@ -491,7 +417,7 @@ class EgoWiki(Tool):
         Returns:
             A summary of the Wikipedia article.
         """
-        logging.info(f"--- EgoWiki: Searching for article: '{query}' ---")
+        logging.info(f"--- ego_knowledge: Searching for article: '{query}' ---")
         # --- Run the synchronous network call in a separate thread to avoid blocking
         # --- the main async event loop. This is crucial for async performance.
         loop = asyncio.get_running_loop()
@@ -518,7 +444,7 @@ class ManagePlan(Tool):
         return f"LOCAL_TOOL_SIGNAL:manage_plan:{json_query}"
 
 
-class SuperEGO(Tool):
+class SuperEgo(Tool):
     """
     Multi-agent debate system for complex reasoning.
     Spawns multiple specialized agents that discuss the problem and arrive at a consensus.
@@ -528,7 +454,7 @@ class SuperEGO(Tool):
 
     def __init__(self, backend: LLMProvider):
         super().__init__(
-            name="SuperEGO",
+            name="super_ego",
             desc="Engages multiple specialized AI agents in structured debate for complex problems requiring diverse expert perspectives. Use this for critical decisions, complex implementations, or when you need adversarial analysis.",
         )
         self.backend = backend
@@ -559,7 +485,7 @@ class SuperEGO(Tool):
                 event_type = f"superego_{signal_type}"
                 await event_callback({"type": event_type, "data": data})
             except Exception as e:
-                logging.warning(f"[SuperEGO] Failed to invoke event callback: {e}")
+                logging.warning(f"[super_ego] Failed to invoke event callback: {e}")
 
         return f"SUPEREGO_SIGNAL:{signal_type}:{signal_data}"
 
@@ -590,7 +516,7 @@ class SuperEGO(Tool):
         Returns:
             Tuple of (agent's response text, list of signals emitted)
         """
-        logging.info(f"[SuperEGO] Running {agent_name} agent in round {round_number}...")
+        logging.info(f"[super_ego] Running {agent_name} agent in round {round_number}...")
 
         signals = []
 
@@ -631,7 +557,7 @@ YOUR TURN - Provide your analysis:
                 config=config,
                 prompt_parts=[full_prompt],
             )
-            logging.info(f"[SuperEGO] {agent_name} completed successfully")
+            logging.info(f"[super_ego] {agent_name} completed successfully")
 
             # Emit agent message signal
             signals.append(
@@ -663,7 +589,7 @@ YOUR TURN - Provide your analysis:
             return response_text, signals
 
         except (genai_errors.ClientError, genai_errors.ServerError) as e:
-            logging.warning(f"[SuperEGO] {agent_name} failed: {e}")
+            logging.warning(f"[super_ego] {agent_name} failed: {e}")
             error_msg = f"[{agent_name} encountered an error and could not complete the analysis]"
 
             # Emit error signal
@@ -694,7 +620,9 @@ YOUR TURN - Provide your analysis:
         Returns:
             All signals concatenated with newlines for Go backend to parse and stream
         """
-        logging.info(f"--- SuperEGO: Starting multi-agent debate for query: '{query[:100]}...' ---")
+        logging.info(
+            f"--- super_ego: Starting multi-agent debate for query: '{query[:100]}...' ---"
+        )
 
         event_callback = kwargs.get("event_callback")
 
@@ -820,6 +748,6 @@ YOUR TURN - Provide your analysis:
         result = "\n".join(all_signals)
 
         logging.info(
-            f"[SuperEGO] Multi-agent debate completed with {len(all_signals)} signals emitted"
+            f"[super_ego] Multi-agent debate completed with {len(all_signals)} signals emitted"
         )
         return result

@@ -6,45 +6,40 @@ export interface ToolStatusConfig {
 	color?: string;
 }
 export const TOOL_CONFIGS: Record<string, ToolStatusConfig> = {
-	EgoSearch: {
-		name: 'EgoSearch',
+	ego_search: {
+		name: 'ego_search',
 		icon: '🌐',
 		color: 'text-blue-400'
 	},
-	EgoMemory: {
-		name: 'EgoMemory',
+	ego_memory: {
+		name: 'ego_memory',
 		icon: '🧠',
 		color: 'text-purple-400'
 	},
-	EgoTube: {
-		name: 'EgoTube',
-		icon: '🎬',
-		color: 'text-red-400'
-	},
-	EgoCalc: {
-		name: 'EgoCalc',
+	ego_calc: {
+		name: 'ego_calc',
 		icon: '🔢',
 		color: 'text-green-400'
 	},
-	EgoCodeExec: {
-		name: 'EgoCodeExec',
+	ego_code_exec: {
+		name: 'ego_code_exec',
 		icon: '💻',
 		color: 'text-yellow-400'
 	},
-	AlterEgo: {
-		name: 'AlterEgo',
+	alter_ego: {
+		name: 'alter_ego',
 		icon: '🎭',
 		color: 'text-pink-400'
 	},
-	EgoKnowledge: {
-		name: 'EgoKnowledge',
-		icon: '📚',
-		color: 'text-indigo-400'
-	},
-	EgoWiki: {
-		name: 'EgoWiki',
+	ego_knowledge: {
+		name: 'ego_knowledge',
 		icon: '📖',
 		color: 'text-gray-400'
+	},
+	super_ego: {
+		name: 'super_ego',
+		icon: '🤝',
+		color: 'text-cyan-400'
 	}
 };
 export function parseToolHeader(header: string): {

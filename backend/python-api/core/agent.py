@@ -77,7 +77,7 @@ class ToolCall(BaseModel):
     """
 
     tool_name: str = Field(
-        description="Name of the tool to be called, e.g., 'EgoSearch' or 'EgoWiki'"
+        description="Name of the tool to be called, e.g., 'ego_search' or 'ego_wiki'"
     )
     tool_query: str = Field(
         description="The specific query, question, article title or code for the tool"

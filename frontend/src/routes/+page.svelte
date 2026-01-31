@@ -17,14 +17,15 @@
 		Activity,
 		Search,
 		Check,
-		Youtube,
 		Calculator,
 		BookOpen,
 		Cpu,
 		Globe,
 		MessageSquare,
 		Menu,
-		X
+		X,
+		Users,
+		Sparkles
 	} from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fly, scale, slide } from 'svelte/transition';
@@ -77,29 +78,47 @@
 	}
 
 	const tools = [
-		{ id: 'egosearch', icon: Search, color: 'blue', tag: 'REAL-TIME', status: 'Global Web Access' },
-		{ id: 'egotube', icon: Youtube, color: 'red', tag: 'VISION', status: 'Semantic Video Parsing' },
 		{
-			id: 'egocodeexec',
+			id: 'ego_search',
+			icon: Search,
+			color: 'blue',
+			tag: 'REAL-TIME',
+			status: 'Global Web Access'
+		},
+		{
+			id: 'ego_user_summary',
+			icon: Activity,
+			color: 'red',
+			tag: 'PROFILE',
+			status: 'Adaptive User Context'
+		},
+		{
+			id: 'ego_code_exec',
 			icon: Code,
 			color: 'green',
 			tag: 'COMPUTE',
 			status: 'Isolated Python Sandbox'
 		},
 		{
-			id: 'egomemory',
+			id: 'ego_memory',
 			icon: Database,
 			color: 'purple',
 			tag: 'NEURAL',
 			status: 'Vector-based Recall'
 		},
-		{ id: 'egocalc', icon: Calculator, color: 'orange', status: 'Symbolic Mathematics' },
 		{
-			id: 'egowiki',
+			id: 'ego_calc',
+			icon: Calculator,
+			color: 'orange',
+			tag: 'SYMBOLIC',
+			status: 'Advanced Mathematics'
+		},
+		{
+			id: 'ego_knowledge',
 			icon: BookOpen,
 			color: 'amber',
 			tag: 'KNOWLEDGE',
-			status: 'Encyclopedic Verification'
+			status: 'Encyclopedic Facts'
 		}
 	];
 
@@ -126,11 +145,23 @@
 	let currentCtaWordIdx = $state(0);
 	let isChanging = $state(false);
 
+	// Advanced agents badge rotation
+	const superEgoBadgeWordsRu = ['КОЛЛЕКТИВНЫЙ', 'ГРУППОВОЙ', 'КОМАНДНЫЙ', 'КОНСЕНСУСНЫЙ'];
+	const superEgoBadgeWordsEn = ['COLLECTIVE', 'GROUP', 'TEAM', 'CONSENSUS'];
+	const alterEgoBadgeWordsRu = ['КРИТИЧЕСКОЕ', 'АДВЕРСАРИАЛЬНОЕ', 'СКЕПТИЧЕСКОЕ', 'АНАЛИТИЧЕСКОЕ'];
+	const alterEgoBadgeWordsEn = ['CRITICAL', 'ADVERSARIAL', 'SKEPTICAL', 'ANALYTICAL'];
+
+	let currentSuperEgoBadgeIdx = $state(0);
+	let currentAlterEgoBadgeIdx = $state(0);
+	let isBadgeChanging = $state(false);
+
 	// Reset index when locale changes to avoid out-of-bounds or stuck words
 	$effect(() => {
 		void $locale; // Dependency on locale
 		currentWordIdx = 0;
 		currentCtaWordIdx = 0;
+		currentSuperEgoBadgeIdx = 0;
+		currentAlterEgoBadgeIdx = 0;
 	});
 	onMount(() => {
 		const handleScroll = () => {
@@ -152,9 +183,24 @@
 			}, 200); // Glitch/change duration
 		}, 4000);
 
+		// Rotate badge words every 3.5 seconds (slightly offset from main rotation)
+		const badgeInterval = setInterval(() => {
+			isBadgeChanging = true;
+			setTimeout(() => {
+				const superEgoWords = $locale === 'ru' ? superEgoBadgeWordsRu : superEgoBadgeWordsEn;
+				const alterEgoWords = $locale === 'ru' ? alterEgoBadgeWordsRu : alterEgoBadgeWordsEn;
+
+				currentSuperEgoBadgeIdx = (currentSuperEgoBadgeIdx + 1) % superEgoWords.length;
+				currentAlterEgoBadgeIdx = (currentAlterEgoBadgeIdx + 1) % alterEgoWords.length;
+
+				isBadgeChanging = false;
+			}, 200);
+		}, 3500);
+
 		return () => {
 			window.removeEventListener('scroll', handleScroll);
 			clearInterval(interval);
+			clearInterval(badgeInterval);
 		};
 	});
 </script>
@@ -493,6 +539,267 @@
 						</div>
 					</div>
 				{/each}
+			</div>
+		</div>
+	</section>
+
+	<!-- Advanced Reasoning Agents -->
+	<section
+		id="advanced-agents"
+		class="relative z-10 overflow-hidden border-t border-black/[0.03] px-6 py-32 dark:border-white/5"
+	>
+		<div class="mx-auto max-w-7xl">
+			<!-- Section Header -->
+			<div class="mb-20 text-center" use:viewport>
+				<h2 class="mb-6 text-4xl font-black tracking-tight md:text-6xl">
+					{$t('knowego.advanced_reasoning_title')}
+				</h2>
+				<p class="mx-auto max-w-3xl text-lg font-light leading-relaxed opacity-60 md:text-xl">
+					{$t('knowego.advanced_reasoning_subtitle')}
+				</p>
+			</div>
+
+			<!-- Two-column layout -->
+			<div class="grid grid-cols-1 gap-8 lg:grid-cols-2">
+				<!-- SuperEGO Card -->
+				<div
+					class="group relative overflow-hidden rounded-[3rem] border transition-all duration-700 hover:scale-[1.02]
+					{preferencesStore.theme === 'light'
+						? 'border-black/[0.05] bg-gradient-to-br from-purple-50 via-white to-blue-50 shadow-2xl shadow-purple-500/5'
+						: 'border-white/10 bg-gradient-to-br from-purple-500/10 via-[#0A0A0A] to-blue-500/10 shadow-2xl'}"
+					use:viewport
+				>
+					<!-- Animated background glow -->
+					<div
+						class="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-700 group-hover:opacity-100"
+					>
+						<div
+							class="absolute left-1/2 top-0 h-[200%] w-[200%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-r from-purple-500/20 to-blue-500/20 blur-[100px]"
+						></div>
+					</div>
+
+					<div class="relative z-10 p-10 md:p-14">
+						<!-- Header -->
+						<div class="mb-8 flex items-start justify-between">
+							<div class="flex items-center gap-4">
+								<div
+									class="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 to-blue-500 shadow-lg shadow-purple-500/30 transition-all duration-500 group-hover:rotate-3 group-hover:scale-110"
+								>
+									<Users class="h-8 w-8 text-white" />
+								</div>
+								<div>
+									<div
+										class="mb-2 flex flex-col items-start gap-0.5 rounded-2xl border px-4 py-2 {preferencesStore.theme ===
+										'light'
+											? 'border-purple-200 bg-purple-100/50'
+											: 'border-purple-500/20 bg-purple-500/10'}"
+									>
+										<!-- Rotating word with glitch effect -->
+										<span
+											class="inline-grid grid-cols-1 grid-rows-1 text-[10px] font-black uppercase tracking-[0.15em] text-purple-600 dark:text-purple-400"
+										>
+											<span class="pointer-events-none invisible col-start-1 row-start-1">
+												{$locale === 'ru' ? 'КОНСЕНСУСНЫЙ' : 'COLLECTIVE'}
+											</span>
+											<span
+												class="col-start-1 row-start-1 {isBadgeChanging
+													? 'animate-glitch-fast'
+													: ''}"
+											>
+												{($locale === 'ru' ? superEgoBadgeWordsRu : superEgoBadgeWordsEn)[
+													currentSuperEgoBadgeIdx
+												]}
+											</span>
+										</span>
+										<!-- Static second line -->
+										<span
+											class="text-[10px] font-black uppercase tracking-[0.15em] text-purple-600 dark:text-purple-400"
+										>
+											{$locale === 'ru' ? 'ИНТЕЛЛЕКТ' : 'INTELLIGENCE'}
+										</span>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<!-- Title & Description -->
+						<h3 class="mb-6 text-3xl font-black tracking-tight md:text-4xl">
+							{$t('knowego.tool_super_ego_title')}
+						</h3>
+						<p class="mb-8 text-base leading-relaxed opacity-70 md:text-lg">
+							{$t('knowego.tool_super_ego_desc')}
+						</p>
+
+						<!-- Features Grid -->
+						<div class="mb-8 grid grid-cols-2 gap-3">
+							{#each $t('knowego.tool_super_ego_features') as feature, i (i)}
+								<div
+									class="flex items-center gap-2 rounded-xl border px-4 py-3 transition-all duration-300 hover:scale-105
+									{preferencesStore.theme === 'light'
+										? 'border-purple-200/50 bg-white/50'
+										: 'border-white/5 bg-white/5'}"
+									in:fly={{ y: 20, duration: 600, delay: 100 * i, easing: cubicOut }}
+								>
+									<div
+										class="flex h-5 w-5 items-center justify-center rounded-full bg-purple-500/10"
+									>
+										<Check class="h-3 w-3 text-purple-500" />
+									</div>
+									<span class="text-xs font-bold">{feature}</span>
+								</div>
+							{/each}
+						</div>
+
+						<!-- Agent Icons Animation -->
+						<div
+							class="flex items-center justify-center gap-2 opacity-40 transition-opacity duration-500 group-hover:opacity-60"
+						>
+							<!-- eslint-disable-next-line @typescript-eslint/no-unused-vars -->
+							{#each Array(5) as _, i (i)}
+								<div
+									class="h-2 w-2 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-300"
+									style="animation-delay: {i * 0.2}s"
+									class:animate-pulse-gentle={true}
+								></div>
+							{/each}
+						</div>
+					</div>
+				</div>
+
+				<!-- AlterEGO Card -->
+				<div
+					class="group relative overflow-hidden rounded-[3rem] border transition-all duration-700 hover:scale-[1.02]
+					{preferencesStore.theme === 'light'
+						? 'border-black/[0.05] bg-gradient-to-br from-pink-50 via-white to-orange-50 shadow-2xl shadow-pink-500/5'
+						: 'border-white/10 bg-gradient-to-br from-pink-500/10 via-[#0A0A0A] to-orange-500/10 shadow-2xl'}"
+					use:viewport
+				>
+					<!-- Animated background glow -->
+					<div
+						class="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-700 group-hover:opacity-100"
+					>
+						<div
+							class="absolute left-1/2 top-0 h-[200%] w-[200%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-r from-pink-500/20 to-orange-500/20 blur-[100px]"
+						></div>
+					</div>
+
+					<div class="relative z-10 p-10 md:p-14">
+						<!-- Header -->
+						<div class="mb-8 flex items-start justify-between">
+							<div class="flex items-center gap-4">
+								<div
+									class="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-500 to-orange-500 shadow-lg shadow-pink-500/30 transition-all duration-500 group-hover:-rotate-3 group-hover:scale-110"
+								>
+									<Sparkles class="h-8 w-8 text-white" />
+								</div>
+								<div>
+									<div
+										class="mb-2 flex flex-col items-start gap-0.5 rounded-2xl border px-4 py-2 {preferencesStore.theme ===
+										'light'
+											? 'border-pink-200 bg-pink-100/50'
+											: 'border-pink-500/20 bg-pink-500/10'}"
+									>
+										<!-- Rotating word with glitch effect -->
+										<span
+											class="inline-grid grid-cols-1 grid-rows-1 text-[10px] font-black uppercase tracking-[0.15em] text-pink-600 dark:text-pink-400"
+										>
+											<span class="pointer-events-none invisible col-start-1 row-start-1">
+												{$locale === 'ru' ? 'АНАЛИТИЧЕСКОЕ' : 'ADVERSARIAL'}
+											</span>
+											<span
+												class="col-start-1 row-start-1 {isBadgeChanging
+													? 'animate-glitch-fast'
+													: ''}"
+											>
+												{($locale === 'ru' ? alterEgoBadgeWordsRu : alterEgoBadgeWordsEn)[
+													currentAlterEgoBadgeIdx
+												]}
+											</span>
+										</span>
+										<!-- Static second line -->
+										<span
+											class="text-[10px] font-black uppercase tracking-[0.15em] text-pink-600 dark:text-pink-400"
+										>
+											{$locale === 'ru' ? 'МЫШЛЕНИЕ' : 'THINKING'}
+										</span>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<!-- Title & Description -->
+						<h3 class="mb-6 text-3xl font-black tracking-tight md:text-4xl">
+							{$t('knowego.tool_alter_ego_title')}
+						</h3>
+						<p class="mb-8 text-base leading-relaxed opacity-70 md:text-lg">
+							{$t('knowego.tool_alter_ego_desc')}
+						</p>
+
+						<!-- Features Grid -->
+						<div class="mb-8 grid grid-cols-2 gap-3">
+							{#each $t('knowego.tool_alter_ego_features') as feature, i (i)}
+								<div
+									class="flex items-center gap-2 rounded-xl border px-4 py-3 transition-all duration-300 hover:scale-105
+									{preferencesStore.theme === 'light'
+										? 'border-pink-200/50 bg-white/50'
+										: 'border-white/5 bg-white/5'}"
+									in:fly={{ y: 20, duration: 600, delay: 100 * i, easing: cubicOut }}
+								>
+									<div class="flex h-5 w-5 items-center justify-center rounded-full bg-pink-500/10">
+										<Check class="h-3 w-3 text-pink-500" />
+									</div>
+									<span class="text-xs font-bold">{feature}</span>
+								</div>
+							{/each}
+						</div>
+
+						<!-- Glitch effect indicator -->
+						<div
+							class="flex items-center justify-center gap-2 font-mono text-xs font-bold uppercase tracking-widest opacity-40 transition-opacity duration-500 group-hover:opacity-60"
+						>
+							<div
+								class="h-2 w-2 animate-pulse rounded-full bg-gradient-to-r from-pink-500 to-orange-500"
+							></div>
+							ADVERSARIAL MODE
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Bottom Info Bar -->
+			<div
+				class="mt-16 overflow-hidden rounded-3xl border backdrop-blur-xl transition-all duration-500 hover:scale-[1.01]
+				{preferencesStore.theme === 'light'
+					? 'border-black/[0.05] bg-white/80 shadow-xl'
+					: 'border-white/5 bg-white/5'}"
+				use:viewport
+			>
+				<div class="p-8 md:p-10">
+					<div class="flex flex-col items-center gap-6 text-center md:flex-row md:text-left">
+						<div
+							class="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-accent/10"
+						>
+							<Brain class="h-7 w-7 text-accent" />
+						</div>
+						<div class="flex-1">
+							<h4 class="mb-2 text-xl font-bold tracking-tight">
+								{$locale === 'ru' ? 'Когда использовать эти агенты?' : 'When to Use These Agents?'}
+							</h4>
+							<p class="text-sm opacity-60 md:text-base">
+								{$locale === 'ru'
+									? 'Используйте super_ego для критических решений, требующих экспертного консенсуса. Вызывайте alter_ego для проверки логики и поиска слабых мест в рассуждениях.'
+									: 'Use super_ego for critical decisions requiring expert consensus. Call alter_ego to validate logic and find weak spots in reasoning.'}
+							</p>
+						</div>
+						<button
+							onclick={async () => void goto('/chat/new')}
+							class="group flex items-center gap-2 rounded-xl bg-accent px-8 py-3 font-bold text-white transition-all hover:scale-105 active:scale-95 dark:bg-white dark:text-black"
+						>
+							{$locale === 'ru' ? 'Попробовать' : 'Try Now'}
+							<ArrowRight class="h-4 w-4 transition-transform group-hover:translate-x-1" />
+						</button>
+					</div>
+				</div>
 			</div>
 		</div>
 	</section>
@@ -1292,6 +1599,22 @@
 
 	.animate-glitch-fast {
 		animation: glitch-fast 0.2s linear infinite;
+	}
+
+	@keyframes pulse-gentle {
+		0%,
+		100% {
+			opacity: 0.4;
+			transform: scale(1);
+		}
+		50% {
+			opacity: 1;
+			transform: scale(1.2);
+		}
+	}
+
+	.animate-pulse-gentle {
+		animation: pulse-gentle 2s ease-in-out infinite;
 	}
 
 	@keyframes glitch-fast {

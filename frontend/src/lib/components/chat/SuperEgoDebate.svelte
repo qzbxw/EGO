@@ -67,8 +67,8 @@
 
 	let { debate }: { debate: SuperEgoDebate } = $props();
 
-	let expandedRounds = $state(new SvelteSet<number>([1])); // Auto-expand first round
-	let expandedAgents = $state(new SvelteSet<string>());
+	let expandedRounds = new SvelteSet<number>([1]); // Auto-expand first round
+	let expandedAgents = new SvelteSet<string>();
 
 	function toggleRound(roundNumber: number) {
 		if (expandedRounds.has(roundNumber)) {
@@ -98,7 +98,7 @@
 <div class="superego-debate">
 	<div class="debate-header">
 		<Users size={20} />
-		<h3>SuperEGO Multi-Agent Debate</h3>
+		<h3>super_ego Multi-Agent Debate</h3>
 		{#if debate.completed}
 			<span class="badge completed">Completed</span>
 		{:else if debate.active}

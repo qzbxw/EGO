@@ -568,10 +568,10 @@ function handleEvent(event: WsEvent) {
 			chatStore.resetBuffer();
 			break;
 
-		// SuperEGO multi-agent debate events
+		// super_ego multi-agent debate events
 		case 'superego_round_start':
 			if (event.data) {
-				console.log(`[SuperEGO] Round ${event.data.round} started: ${event.data.title}`);
+				console.log(`[super_ego] Round ${event.data.round} started: ${event.data.title}`);
 				chatStore.startSuperEgoRound(event.data.round, event.data.title);
 			}
 			break;
@@ -613,21 +613,21 @@ function handleEvent(event: WsEvent) {
 
 		case 'superego_agent_error':
 			if (event.data) {
-				console.log(`[SuperEGO] Agent ${event.data.agent_name} error: ${event.data.error}`);
+				console.log(`[super_ego] Agent ${event.data.agent_name} error: ${event.data.error}`);
 				chatStore.errorSuperEgoAgent(event.data.round, event.data.agent_name, event.data.error);
 			}
 			break;
 
 		case 'superego_round_done':
 			if (event.data) {
-				console.log(`[SuperEGO] Round ${event.data.round} completed`);
+				console.log(`[super_ego] Round ${event.data.round} completed`);
 				chatStore.completeSuperEgoRound(event.data.round);
 			}
 			break;
 
 		case 'superego_debate_complete':
 			if (event.data) {
-				console.log('[SuperEGO] Debate completed');
+				console.log('[super_ego] Debate completed');
 				chatStore.completeSuperEgoDebate(event.data.summary);
 			}
 			break;

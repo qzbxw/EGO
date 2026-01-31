@@ -33,12 +33,11 @@ from core.tools import (
     AlterEgo,
     EgoCalc,
     EgoCodeExec,
+    EgoKnowledge,
     EgoMemory,
     EgoSearch,
-    EgoTube,
-    EgoWiki,
     ManagePlan,
-    SuperEGO,
+    SuperEgo,
 )
 from utils.logger import get_logger, setup_logging
 
@@ -181,7 +180,7 @@ class ToolExecutionRequest(BaseModel):
 
     query: str = Field(description="The input query, command, or data for the tool.")
     user_id: str | None = Field(
-        None, description="The ID of the user, required for tools like EgoMemory."
+        None, description="The ID of the user, required for tools like ego_memory."
     )
     memory_enabled: bool = Field(
         True, description="Flag indicating if memory can be used by the tool."
@@ -348,10 +347,9 @@ try:
         EgoSearch(backend=default_backend),
         AlterEgo(backend=default_backend),
         EgoCalc(),
-        EgoWiki(),
-        EgoTube(backend=default_backend),
+        EgoKnowledge(),
         ManagePlan(),
-        SuperEGO(backend=default_backend),
+        SuperEgo(backend=default_backend),
     ]
     # --- Conditionally enable the code execution tool based on an environment variable.
     if os.getenv("EGO_ENABLE_CODEEXEC", "0").lower() in ("1", "true", "yes"):
@@ -911,12 +909,12 @@ async def generate_thought(request: Request):
 
                 def get_tool_timeout(tool_name: str) -> float:
                     timeouts = {
-                        "EgoTube": 600.0,
-                        "EgoSearch": 120.0,
-                        "EgoCodeExec": 300.0,
-                        "EgoWiki": 60.0,
-                        "EgoMemory": 45.0,
-                        "SuperEGO": 600.0,
+                        "ego_search": 120.0,
+                        "ego_code_exec": 300.0,
+                        "ego_knowledge": 60.0,
+                        "ego_calc": 60.0,
+                        "ego_memory": 45.0,
+                        "super_ego": 900.0,
                     }
                     return timeouts.get(tool_name, 60.0)
 
@@ -960,7 +958,7 @@ async def generate_thought(request: Request):
                         if not tool:
                             raise ValueError(f"Tool '{tool_name}' not found.")
 
-                        if tool_name == "EgoMemory" and not ego_req.memory_enabled:
+                        if tool_name == "ego_memory" and not ego_req.memory_enabled:
                             raise ValueError("Error: Memory is disabled.")
 
                         # --- Pass event_callback to tool.use
@@ -1213,7 +1211,7 @@ async def execute_tool(tool_name: str, request: ToolExecutionRequest):
             )
 
         # --- Special check for the memory tool.
-        if tool_name == "EgoMemory" and not request.memory_enabled:
+        if tool_name == "ego_memory" and not request.memory_enabled:
             return JSONResponse(
                 content={"result": "Error: Memory is disabled in the session settings."}
             )
