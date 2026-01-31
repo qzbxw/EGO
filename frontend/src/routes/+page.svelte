@@ -623,58 +623,29 @@
 						</div>
 
 						<!-- Title & Description -->
+
 						<h3 class="mb-6 text-3xl font-black tracking-tight md:text-4xl">
 							{$t('knowego.tool_super_ego_title')}
 						</h3>
+
 						<p class="mb-8 text-base leading-relaxed opacity-70 md:text-lg">
 							{$t('knowego.tool_super_ego_desc')}
 						</p>
-
-						<!-- Features Grid -->
-						<div class="mb-8 grid grid-cols-2 gap-3">
-							{#each $t('knowego.tool_super_ego_features') as feature, i (i)}
-								<div
-									class="flex items-center gap-2 rounded-xl border px-4 py-3 transition-all duration-300 hover:scale-105
-									{preferencesStore.theme === 'light'
-										? 'border-purple-200/50 bg-white/50'
-										: 'border-white/5 bg-white/5'}"
-									in:fly={{ y: 20, duration: 600, delay: 100 * i, easing: cubicOut }}
-								>
-									<div
-										class="flex h-5 w-5 items-center justify-center rounded-full bg-purple-500/10"
-									>
-										<Check class="h-3 w-3 text-purple-500" />
-									</div>
-									<span class="text-xs font-bold">{feature}</span>
-								</div>
-							{/each}
-						</div>
-
-						<!-- Agent Icons Animation -->
-						<div
-							class="flex items-center justify-center gap-2 opacity-40 transition-opacity duration-500 group-hover:opacity-60"
-						>
-							<!-- eslint-disable-next-line @typescript-eslint/no-unused-vars -->
-							{#each Array(5) as _, i (i)}
-								<div
-									class="h-2 w-2 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-300"
-									style="animation-delay: {i * 0.2}s"
-									class:animate-pulse-gentle={true}
-								></div>
-							{/each}
-						</div>
 					</div>
 				</div>
 
 				<!-- AlterEGO Card -->
+
 				<div
 					class="group relative overflow-hidden rounded-[3rem] border transition-all duration-700 hover:scale-[1.02]
-					{preferencesStore.theme === 'light'
+
+											{preferencesStore.theme === 'light'
 						? 'border-black/[0.05] bg-gradient-to-br from-pink-50 via-white to-orange-50 shadow-2xl shadow-pink-500/5'
 						: 'border-white/10 bg-gradient-to-br from-pink-500/10 via-[#0A0A0A] to-orange-500/10 shadow-2xl'}"
 					use:viewport
 				>
 					<!-- Animated background glow -->
+
 					<div
 						class="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-700 group-hover:opacity-100"
 					>
@@ -685,6 +656,7 @@
 
 					<div class="relative z-10 p-10 md:p-14">
 						<!-- Header -->
+
 						<div class="mb-8 flex items-start justify-between">
 							<div class="flex items-center gap-4">
 								<div
@@ -692,6 +664,7 @@
 								>
 									<Sparkles class="h-8 w-8 text-white" />
 								</div>
+
 								<div>
 									<div
 										class="mb-2 flex flex-col items-start gap-0.5 rounded-2xl border px-4 py-2 {preferencesStore.theme ===
@@ -700,12 +673,14 @@
 											: 'border-pink-500/20 bg-pink-500/10'}"
 									>
 										<!-- Rotating word with glitch effect -->
+
 										<span
 											class="inline-grid grid-cols-1 grid-rows-1 text-[10px] font-black uppercase tracking-[0.15em] text-pink-600 dark:text-pink-400"
 										>
 											<span class="pointer-events-none invisible col-start-1 row-start-1">
 												{$locale === 'ru' ? 'АНАЛИТИЧЕСКОЕ' : 'ADVERSARIAL'}
 											</span>
+
 											<span
 												class="col-start-1 row-start-1 {isBadgeChanging
 													? 'animate-glitch-fast'
@@ -716,7 +691,9 @@
 												]}
 											</span>
 										</span>
+
 										<!-- Static second line -->
+
 										<span
 											class="text-[10px] font-black uppercase tracking-[0.15em] text-pink-600 dark:text-pink-400"
 										>
@@ -728,38 +705,24 @@
 						</div>
 
 						<!-- Title & Description -->
+
 						<h3 class="mb-6 text-3xl font-black tracking-tight md:text-4xl">
 							{$t('knowego.tool_alter_ego_title')}
 						</h3>
+
 						<p class="mb-8 text-base leading-relaxed opacity-70 md:text-lg">
 							{$t('knowego.tool_alter_ego_desc')}
 						</p>
 
-						<!-- Features Grid -->
-						<div class="mb-8 grid grid-cols-2 gap-3">
-							{#each $t('knowego.tool_alter_ego_features') as feature, i (i)}
-								<div
-									class="flex items-center gap-2 rounded-xl border px-4 py-3 transition-all duration-300 hover:scale-105
-									{preferencesStore.theme === 'light'
-										? 'border-pink-200/50 bg-white/50'
-										: 'border-white/5 bg-white/5'}"
-									in:fly={{ y: 20, duration: 600, delay: 100 * i, easing: cubicOut }}
-								>
-									<div class="flex h-5 w-5 items-center justify-center rounded-full bg-pink-500/10">
-										<Check class="h-3 w-3 text-pink-500" />
-									</div>
-									<span class="text-xs font-bold">{feature}</span>
-								</div>
-							{/each}
-						</div>
-
 						<!-- Glitch effect indicator -->
+
 						<div
 							class="flex items-center justify-center gap-2 font-mono text-xs font-bold uppercase tracking-widest opacity-40 transition-opacity duration-500 group-hover:opacity-60"
 						>
 							<div
 								class="h-2 w-2 animate-pulse rounded-full bg-gradient-to-r from-pink-500 to-orange-500"
 							></div>
+
 							ADVERSARIAL MODE
 						</div>
 					</div>
@@ -783,12 +746,12 @@
 						</div>
 						<div class="flex-1">
 							<h4 class="mb-2 text-xl font-bold tracking-tight">
-								{$locale === 'ru' ? 'Когда использовать эти агенты?' : 'When to Use These Agents?'}
+								{$locale === 'ru' ? 'Полная автономность' : 'Fully Autonomous'}
 							</h4>
 							<p class="text-sm opacity-60 md:text-base">
 								{$locale === 'ru'
-									? 'Используйте super_ego для критических решений, требующих экспертного консенсуса. Вызывайте alter_ego для проверки логики и поиска слабых мест в рассуждениях.'
-									: 'Use super_ego for critical decisions requiring expert consensus. Call alter_ego to validate logic and find weak spots in reasoning.'}
+									? 'Вам не нужно включать их вручную. EGO сам вызывает этих агентов, когда обнаруживает сложную проблему, требующую дебатов или критики.'
+									: "You don't need to enable them manually. EGO autonomously calls these agents when it detects a complex problem requiring debate or critique."}
 							</p>
 						</div>
 						<button

@@ -304,23 +304,13 @@
 		"advanced_reasoning_title": "Advanced Reasoning Systems",
 		"advanced_reasoning_subtitle": "Elevate your AI with multi-agent intelligence and adversarial thinking",
 		"tool_super_ego_title": "Multi-Agent Debate",
-		"tool_super_ego_desc": "Deploy 5 specialized AI agents (Researcher, Solver, Critic, Optimizer, Synthesizer) that debate your problem from multiple expert perspectives. Perfect for complex architectural decisions, critical implementations, and thorough analysis.",
+		"tool_super_ego_desc": "A group of independent AI experts thoroughly analyzes your task to reach the most balanced and reliable solution through consensus.",
 		"tool_super_ego_badge": "COLLECTIVE INTELLIGENCE",
-		"tool_super_ego_features": [
-			"3-round structured debate",
-			"5 specialized agents",
-			"Consensus-driven output",
-			"Perfect for critical decisions"
-		],
-		"tool_alter_ego_title": "Adversarial Red Team",
-		"tool_alter_ego_desc": "Engage a creative contrarian persona that challenges EGO's logic, finds blind spots, and stress-tests solutions. Acts as your personal devil's advocate for high-stakes decisions.",
+		"tool_super_ego_features": [],
+		"tool_alter_ego_title": "Devil's Advocate",
+		"tool_alter_ego_desc": "Your personal critic that finds hidden flaws in reasoning, challenges logic, and helps refine ideas to perfection.",
 		"tool_alter_ego_badge": "CRITICAL THINKING",
-		"tool_alter_ego_features": [
-			"Finds logical flaws",
-			"Challenges assumptions",
-			"Creative counterarguments",
-			"Ideal for validation"
-		],
+		"tool_alter_ego_features": [],
 		"tool_alterego_title": "Alternative Perspectives",
 		"tool_alterego_desc": "Re-analysis of problems from different viewpoints and personas.",
 		"tool_alterego_badge": "Multi‑perspective",
