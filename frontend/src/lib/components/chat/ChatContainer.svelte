@@ -62,7 +62,15 @@
 
 	let messages = $derived(
 		(() => {
-			if (chatStore.messages && chatStore.messages.length > 0) {
+			// Check if store has messages AND they belong to the current session
+			// For 'new' session, sessionID is 'new' but store might have 'null' or a temp UUID if we just created it
+			const storeMatchesSession =
+				(sessionID === 'new' &&
+					(!chatStore.messagesSessionUUID ||
+						chatStore.messagesSessionUUID === chatStore.newlyCreatedSessionUUID)) ||
+				chatStore.messagesSessionUUID === sessionID;
+
+			if (storeMatchesSession && chatStore.messages && chatStore.messages.length > 0) {
 				return chatStore.messages;
 			}
 			// Fallback to initialMessages

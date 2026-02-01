@@ -91,6 +91,7 @@
 						if (isCurrentSession) {
 							// Ensure we clear the stream state so we don't try to reuse the deleted session ID
 							resetStreamStore();
+							chatStore.clearMessages();
 							await goto('/chat/new', { replaceState: true, invalidateAll: false });
 						}
 					} catch (e: unknown) {
