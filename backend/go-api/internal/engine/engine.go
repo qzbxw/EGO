@@ -275,6 +275,13 @@ func (p *Processor) runThinkingCycle(ctx context.Context, user *models.User, ses
 		callback("thought_header", map[string]string{"header": fmt.Sprintf("Thinking (Step %d)", i+1)})
 
 		iterationStartTime := time.Now()
+		// Refresh active plan on every iteration so Python always receives
+		// the latest mission state after manage_plan updates.
+		if activePlan, err := p.db.GetActivePlan(session.UUID); err == nil {
+			llmCtx.currentPlan = activePlan
+		} else {
+			log.Printf("[Processor] Warning: failed to refresh active plan for session %s: %v", session.UUID, err)
+		}
 		memEnabled := true // Default to true
 		if req.MemoryEnabled != nil {
 			memEnabled = *req.MemoryEnabled

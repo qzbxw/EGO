@@ -146,6 +146,18 @@ func (te *toolExecutor) executePlanManager(query string, sessionUUID string, cal
 
 	switch args.Action {
 	case "create":
+		// If a plan is already active, do not recreate/reset it.
+		// Return existing plan so the model can continue with update_step calls.
+		existingPlan, err := te.db.GetActivePlan(sessionUUID)
+		if err == nil && existingPlan != nil {
+			callback("plan_updated", existingPlan)
+			planJSON, mErr := json.Marshal(existingPlan)
+			if mErr == nil {
+				return string(planJSON), nil
+			}
+			return fmt.Sprintf("Active plan already exists (ID %d). Continue execution with update_step.", existingPlan.ID), nil
+		}
+
 		if len(args.Steps) == 0 {
 			return "", fmt.Errorf("cannot create plan without steps")
 		}
