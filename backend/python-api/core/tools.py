@@ -2,18 +2,26 @@
 # --- Library Imports
 # -----------------------------------------------------------------------------
 import asyncio
+import ipaddress
 import logging
+import os
 import re
+import socket
+import tempfile
+import threading
 import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
+from urllib.parse import urlparse
 
 import docker
 
 # --- Third-party libraries for specific tools
+import requests
 import sympy
 import wikipediaapi
+from bs4 import BeautifulSoup
 
 # --- Google GenAI specific imports for tool functionality and error handling
 try:
@@ -142,6 +150,288 @@ class EgoSearch(Tool):
             return "Search is temporarily unavailable due to a technical issue. I will proceed without it or you can ask me to try again later."
 
 
+class BraveSearch(Tool):
+    """A tool that queries Brave Search API for independent web results."""
+
+    def __init__(self):
+        super().__init__(
+            name="brave_search",
+            desc="Searches the web via Brave Search API and returns ranked results with snippets and URLs.",
+        )
+        self.api_key = os.getenv("BRAVE_SEARCH_API_KEY", "").strip()
+        self.result_count = max(1, min(int(os.getenv("BRAVE_SEARCH_RESULT_COUNT", "5")), 10))
+        self.timeout = float(os.getenv("BRAVE_SEARCH_TIMEOUT_SECONDS", "15"))
+        self.endpoint = os.getenv(
+            "BRAVE_SEARCH_ENDPOINT", "https://api.search.brave.com/res/v1/web/search"
+        )
+        self.public_search_url = os.getenv(
+            "BRAVE_PUBLIC_SEARCH_URL", "https://search.brave.com/search"
+        )
+
+    @staticmethod
+    def _clean_text(text: str) -> str:
+        return re.sub(r"\s+", " ", (text or "")).strip()
+
+    @staticmethod
+    def _is_valid_result_url(url: str) -> bool:
+        if not url:
+            return False
+        if url.startswith(("javascript:", "mailto:", "tel:", "#")):
+            return False
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            return False
+        host = (parsed.netloc or "").lower()
+        if "search.brave.com" in host:
+            return False
+        return True
+
+    def _search_public_html_sync(self, query: str) -> str:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml",
+        }
+        params = {"q": query, "source": "web"}
+        resp = requests.get(
+            self.public_search_url, headers=headers, params=params, timeout=self.timeout
+        )
+        resp.raise_for_status()
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+        results: list[tuple[str, str, str]] = []
+        seen_urls: set[str] = set()
+
+        # Preferred selector used by Brave result cards.
+        anchors = soup.select("a[data-testid='result-title-a']")
+
+        # Fallback if Brave changes markup.
+        if not anchors:
+            anchors = soup.select("a[href]")
+
+        for a in anchors:
+            href = (a.get("href") or "").strip()
+            if not self._is_valid_result_url(href):
+                continue
+            if href in seen_urls:
+                continue
+
+            title = self._clean_text(a.get_text(" ", strip=True))
+            if not title:
+                continue
+
+            snippet = ""
+            parent = a.parent
+            for _ in range(4):
+                if not parent:
+                    break
+                snippet_tag = parent.find(
+                    ["p", "span", "div"],
+                    attrs={"data-testid": re.compile(r"(result-|snippet)", re.I)},
+                )
+                if snippet_tag:
+                    snippet = self._clean_text(snippet_tag.get_text(" ", strip=True))
+                    break
+                parent = parent.parent
+
+            if not snippet:
+                card_text = ""
+                p = a.parent
+                for _ in range(3):
+                    if not p:
+                        break
+                    card_text = self._clean_text(p.get_text(" ", strip=True))
+                    if len(card_text) > len(title):
+                        break
+                    p = p.parent
+                snippet = card_text.replace(title, "", 1).strip(" -:|")
+
+            if len(snippet) > 350:
+                snippet = snippet[:350] + "..."
+
+            results.append((title, href, snippet))
+            seen_urls.add(href)
+
+            if len(results) >= self.result_count:
+                break
+
+        if not results:
+            return "No relevant Brave Search results were found."
+
+        lines = ["Brave Search results (public SERP):"]
+        for i, (title, url, snippet) in enumerate(results, 1):
+            lines.append(f"{i}. {title}")
+            lines.append(f"   URL: {url}")
+            if snippet:
+                lines.append(f"   Snippet: {snippet}")
+        return "\n".join(lines)
+
+    def _search_sync(self, query: str) -> str:
+        if not self.api_key:
+            return self._search_public_html_sync(query)
+
+        headers = {
+            "Accept": "application/json",
+            "X-Subscription-Token": self.api_key,
+        }
+        params = {
+            "q": query,
+            "count": self.result_count,
+            "safesearch": "moderate",
+        }
+
+        resp = requests.get(self.endpoint, headers=headers, params=params, timeout=self.timeout)
+        resp.raise_for_status()
+        payload = resp.json()
+
+        web_results = payload.get("web", {}).get("results", []) or []
+        news_results = payload.get("news", {}).get("results", []) or []
+        merged_results = web_results if web_results else news_results
+
+        if not merged_results:
+            return "No relevant Brave Search results were found."
+
+        lines = ["Brave Search results:"]
+        for i, item in enumerate(merged_results[: self.result_count], 1):
+            title = (item.get("title") or "Untitled").strip()
+            url = (item.get("url") or "").strip()
+            description = (
+                item.get("description")
+                or item.get("snippet")
+                or item.get("meta_description")
+                or ""
+            ).strip()
+            if len(description) > 350:
+                description = description[:350] + "..."
+            lines.append(f"{i}. {title}")
+            if url:
+                lines.append(f"   URL: {url}")
+            if description:
+                lines.append(f"   Snippet: {description}")
+        return "\n".join(lines)
+
+    async def use(self, query: str, user_id: str | None = None, **kwargs) -> str:
+        logging.info(f"--- brave_search: Executing with query: '{query}' ---")
+        try:
+            loop = asyncio.get_running_loop()
+            return cast("str", await loop.run_in_executor(None, self._search_sync, query))
+        except requests.HTTPError as e:
+            logging.warning(f"brave_search HTTP error for query '{query}': {e}")
+            return f"Brave Search request failed with HTTP error: {e}"
+        except requests.RequestException as e:
+            logging.warning(f"brave_search request error for query '{query}': {e}")
+            return f"Brave Search is temporarily unavailable: {e}"
+        except Exception as e:
+            logging.error(f"brave_search failed for query '{query}': {e}", exc_info=True)
+            return "Brave Search failed unexpectedly."
+
+
+class WebFetch(Tool):
+    """A tool that fetches and extracts clean text from a web page."""
+
+    def __init__(self):
+        super().__init__(
+            name="web_fetch",
+            desc="Fetches a webpage by URL and extracts readable text content for analysis.",
+        )
+        self.timeout = float(os.getenv("WEB_FETCH_TIMEOUT_SECONDS", "15"))
+        self.max_chars = max(2000, int(os.getenv("WEB_FETCH_MAX_CHARS", "12000")))
+        self.user_agent = os.getenv(
+            "WEB_FETCH_USER_AGENT",
+            "EGO-WebFetch/1.0 (+https://example.com; content extraction)",
+        )
+
+    def _is_safe_public_url(self, raw_url: str) -> tuple[bool, str]:
+        parsed = urlparse(raw_url)
+        if parsed.scheme not in ("http", "https"):
+            return False, "Only http/https URLs are allowed."
+
+        host = (parsed.hostname or "").strip().lower()
+        if not host:
+            return False, "URL hostname is missing."
+        if host in {"localhost", "127.0.0.1", "::1"}:
+            return False, "Localhost URLs are blocked."
+
+        try:
+            addr_info = socket.getaddrinfo(host, None)
+        except socket.gaierror:
+            return False, "Unable to resolve hostname."
+
+        for info in addr_info:
+            ip_text = info[4][0]
+            ip = ipaddress.ip_address(ip_text)
+            if (
+                ip.is_private
+                or ip.is_loopback
+                or ip.is_link_local
+                or ip.is_multicast
+                or ip.is_reserved
+                or ip.is_unspecified
+            ):
+                return False, "URL resolves to a non-public IP address."
+
+        return True, ""
+
+    def _fetch_sync(self, raw_url: str) -> str:
+        url = raw_url.strip()
+        is_safe, reason = self._is_safe_public_url(url)
+        if not is_safe:
+            return f"Blocked URL: {reason}"
+
+        headers = {"User-Agent": self.user_agent}
+        resp = requests.get(url, headers=headers, timeout=self.timeout, allow_redirects=True)
+        resp.raise_for_status()
+
+        content_type = (resp.headers.get("Content-Type") or "").lower()
+        final_url = resp.url
+
+        if "text/html" in content_type:
+            soup = BeautifulSoup(resp.text, "html.parser")
+            for tag in soup(["script", "style", "noscript", "svg"]):
+                tag.decompose()
+
+            title = ""
+            if soup.title and soup.title.string:
+                title = soup.title.string.strip()
+
+            text = soup.get_text(separator="\n", strip=True)
+            text = re.sub(r"\n{3,}", "\n\n", text)
+            if len(text) > self.max_chars:
+                text = text[: self.max_chars] + "\n...[truncated]"
+
+            lines = [f"Fetched URL: {final_url}"]
+            if title:
+                lines.append(f"Title: {title}")
+            lines.append("Content:")
+            lines.append(text or "[No readable text extracted]")
+            return "\n".join(lines)
+
+        if content_type.startswith("text/") or "json" in content_type or "xml" in content_type:
+            text = resp.text
+            if len(text) > self.max_chars:
+                text = text[: self.max_chars] + "\n...[truncated]"
+            return f"Fetched URL: {final_url}\nContent-Type: {content_type}\n\n{text}"
+
+        return (
+            f"Fetched URL: {final_url}\nContent-Type: {content_type}\n"
+            "This resource is binary or unsupported for text extraction."
+        )
+
+    async def use(self, query: str, user_id: str | None = None, **kwargs) -> str:
+        logging.info(f"--- web_fetch: Fetching URL from query: '{query}' ---")
+        try:
+            loop = asyncio.get_running_loop()
+            return cast("str", await loop.run_in_executor(None, self._fetch_sync, query))
+        except requests.HTTPError as e:
+            logging.warning(f"web_fetch HTTP error for '{query}': {e}")
+            return f"web_fetch HTTP error: {e}"
+        except requests.RequestException as e:
+            logging.warning(f"web_fetch request error for '{query}': {e}")
+            return f"web_fetch request failed: {e}"
+        except Exception as e:
+            logging.error(f"web_fetch failed for '{query}': {e}", exc_info=True)
+            return f"web_fetch failed: {e}"
+
+
 class AlterEgo(Tool):
     """A tool that uses a different persona/model to re-analyze a thought or query."""
 
@@ -184,15 +474,107 @@ class AlterEgo(Tool):
 class EgoCodeExec(Tool):
     """A tool that executes Python code in a secure, isolated Docker container."""
 
+    _build_lock: threading.Lock = threading.Lock()
+    _sandbox_dockerfile_fallback = """FROM python:3.11-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \\
+    build-essential \\
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir \\
+    numpy \\
+    pandas \\
+    matplotlib \\
+    scipy \\
+    requests \\
+    beautifulsoup4 \\
+    scikit-learn \\
+    sympy \\
+    pillow \\
+    yfinance \\
+    openai \\
+    anthropic
+
+WORKDIR /sandbox
+"""
+
     def __init__(self, backend: LLMProvider | None = None):
         super().__init__(
             name="ego_code_exec",
             desc="Executes Python code in a secure, isolated Docker environment. Supports libraries like numpy, pandas, matplotlib, requests, and more. Use this for complex data analysis, calculations, and simulations.",
         )
         self.client = docker.from_env()
-        self.image_name = "ego-sandbox:latest"
+        self.image_name = os.getenv("EGO_SANDBOX_IMAGE", "ego-sandbox:latest")
         self.volume_name = "sandbox_tmp_data"
         self.sandbox_path = "/app/sandbox_tmp"
+        self.auto_build = os.getenv("EGO_CODEEXEC_AUTO_BUILD", "1").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+        self.auto_pull = os.getenv("EGO_CODEEXEC_AUTO_PULL", "0").lower() in ("1", "true", "yes")
+        self.sandbox_dockerfile_path = Path(
+            os.getenv("EGO_SANDBOX_DOCKERFILE_PATH", "/app/Dockerfile.sandbox")
+        )
+
+    def _build_sandbox_image_sync(self) -> None:
+        """
+        Build sandbox image locally if missing.
+        Prefers checked-in Dockerfile.sandbox, with an inline fallback.
+        """
+        with self._build_lock:
+            try:
+                self.client.images.get(self.image_name)
+                return
+            except docker.errors.ImageNotFound:
+                pass
+
+            logging.info(f"[ego_code_exec] Building sandbox image '{self.image_name}'...")
+
+            if self.sandbox_dockerfile_path.exists():
+                build_dir = str(self.sandbox_dockerfile_path.parent)
+                dockerfile_name = self.sandbox_dockerfile_path.name
+                _, build_logs = self.client.images.build(
+                    path=build_dir,
+                    dockerfile=dockerfile_name,
+                    tag=self.image_name,
+                    rm=True,
+                    pull=self.auto_pull,
+                )
+            else:
+                logging.warning(
+                    f"[ego_code_exec] Sandbox Dockerfile not found at {self.sandbox_dockerfile_path}. "
+                    "Using inline fallback Dockerfile."
+                )
+                with tempfile.TemporaryDirectory(prefix="ego-sandbox-build-") as tmpdir:
+                    dockerfile_path = Path(tmpdir) / "Dockerfile"
+                    dockerfile_path.write_text(self._sandbox_dockerfile_fallback)
+                    _, build_logs = self.client.images.build(
+                        path=tmpdir,
+                        dockerfile="Dockerfile",
+                        tag=self.image_name,
+                        rm=True,
+                        pull=self.auto_pull,
+                    )
+
+            # Emit only concise build status lines.
+            for item in build_logs:
+                stream_line = item.get("stream")
+                if stream_line:
+                    line = stream_line.strip()
+                    if line:
+                        logging.info(f"[ego_code_exec][build] {line}")
+
+            logging.info(f"[ego_code_exec] Sandbox image '{self.image_name}' built successfully.")
+
+    def _ensure_sandbox_image_sync(self) -> None:
+        try:
+            self.client.images.get(self.image_name)
+            return
+        except docker.errors.ImageNotFound:
+            if not self.auto_build:
+                raise
+            self._build_sandbox_image_sync()
 
     async def use(self, query: str, user_id: str | None = None, **kwargs) -> str:
         """
@@ -226,6 +608,7 @@ class EgoCodeExec(Tool):
             loop = asyncio.get_running_loop()
 
             def run_container():
+                self._ensure_sandbox_image_sync()
                 return self.client.containers.run(
                     image=self.image_name,
                     command=f"python /sandbox/{filename}",
@@ -249,10 +632,17 @@ class EgoCodeExec(Tool):
                 logging.warning(f"[ego_code_exec] Container error: {e}")
                 return f"Error during execution:\n{e.stderr.decode('utf-8')}"
             except docker.errors.ImageNotFound:
-                logging.error(f"[ego_code_exec] Image {self.image_name} not found.")
-                return (
-                    f"Error: Sandbox image {self.image_name} not found. Please ensure it is built."
+                logging.error(f"[ego_code_exec] Image {self.image_name} not found after ensure.")
+                return f"Error: Sandbox image {self.image_name} is missing and could not be built."
+            except docker.errors.BuildError as e:
+                logging.error(f"[ego_code_exec] Failed to build sandbox image: {e}", exc_info=True)
+                return f"Error: Failed to build sandbox image '{self.image_name}': {e!s}"
+            except docker.errors.APIError as e:
+                logging.error(
+                    f"[ego_code_exec] Docker API error during sandbox ensure/run: {e}",
+                    exc_info=True,
                 )
+                return f"Docker API error during sandbox execution: {e!s}"
             except Exception as e:
                 logging.error(f"[ego_code_exec] Unexpected error: {e}", exc_info=True)
                 return f"An unexpected error occurred during code execution: {e!s}"

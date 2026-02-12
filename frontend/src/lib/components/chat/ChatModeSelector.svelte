@@ -23,7 +23,8 @@
 		{ id: 'default', label: 'Adaptive' },
 		{ id: 'deeper', label: 'Deeper' },
 		{ id: 'research', label: 'Research' },
-		{ id: 'agent', label: 'Agent' }
+		{ id: 'agent', label: 'Agent' },
+		{ id: 'creative', label: 'Creative' }
 	];
 </script>
 

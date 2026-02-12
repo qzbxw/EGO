@@ -31,6 +31,7 @@ from core.llm_backend import EgoGeminiProvider, LLMProvider, get_llm_provider
 from core.memory_db import VectorMemory
 from core.tools import (
     AlterEgo,
+    BraveSearch,
     EgoCalc,
     EgoCodeExec,
     EgoKnowledge,
@@ -38,6 +39,7 @@ from core.tools import (
     EgoSearch,
     ManagePlan,
     SuperEgo,
+    WebFetch,
 )
 from utils.logger import get_logger, setup_logging
 
@@ -345,6 +347,8 @@ try:
     # --- Assemble the list of tools available to the EGO agent.
     tools = [
         EgoSearch(backend=default_backend),
+        BraveSearch(),
+        WebFetch(),
         AlterEgo(backend=default_backend),
         EgoCalc(),
         EgoKnowledge(),
@@ -910,6 +914,8 @@ async def generate_thought(request: Request):
                 def get_tool_timeout(tool_name: str) -> float:
                     timeouts = {
                         "ego_search": 120.0,
+                        "brave_search": 120.0,
+                        "web_fetch": 90.0,
                         "ego_code_exec": 300.0,
                         "ego_knowledge": 60.0,
                         "ego_calc": 60.0,

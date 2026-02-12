@@ -34,10 +34,12 @@ except ImportError:
 from .llm_backend import LLMProvider
 from .prompts import (
     FINAL_SYNTHESIS_PROMPT_EN_AGENT,
+    FINAL_SYNTHESIS_PROMPT_EN_CREATIVE,
     FINAL_SYNTHESIS_PROMPT_EN_DEEPER,
     FINAL_SYNTHESIS_PROMPT_EN_DEFAULT,
     FINAL_SYNTHESIS_PROMPT_EN_RESEARCH,
     SEQUENTIAL_THINKING_PROMPT_EN_AGENT,
+    SEQUENTIAL_THINKING_PROMPT_EN_CREATIVE,
     SEQUENTIAL_THINKING_PROMPT_EN_DEEPER,
     SEQUENTIAL_THINKING_PROMPT_EN_DEFAULT,
     SEQUENTIAL_THINKING_PROMPT_EN_RESEARCH,
@@ -144,9 +146,15 @@ class EGO:
         "deeper": os.getenv("GEMINI_DEEPER_MODEL", "gemini-3-flash-preview"),
         "research": os.getenv("GEMINI_RESEARCH_MODEL", "gemini-3-flash-preview"),
         "agent": os.getenv("GEMINI_AGENT_MODEL", "gemini-3-flash-preview"),
+        "creative": os.getenv("GEMINI_CREATIVE_MODEL", "gemini-3-flash-preview"),
     }
     # Defines the maximum number of retries for LLM provider calls.
     MAX_ATTEMPTS: ClassVar[int] = int(os.getenv("MAX_ATTEMPTS", 3))
+    # Proactive context compression for large sessions.
+    MAX_CONTEXT_CHARS: ClassVar[int] = int(os.getenv("EGO_MAX_CONTEXT_CHARS", 24_000))
+    COMPRESSED_CONTEXT_TARGET_CHARS: ClassVar[int] = int(
+        os.getenv("EGO_COMPRESSED_CONTEXT_TARGET_CHARS", 6_000)
+    )
 
     def __init__(self, backend: LLMProvider, tools: list[Tool]):
         """
@@ -168,6 +176,7 @@ class EGO:
             "deeper": SEQUENTIAL_THINKING_PROMPT_EN_DEEPER,
             "research": SEQUENTIAL_THINKING_PROMPT_EN_RESEARCH,
             "agent": SEQUENTIAL_THINKING_PROMPT_EN_AGENT,
+            "creative": SEQUENTIAL_THINKING_PROMPT_EN_CREATIVE,
         }
 
         # --- A dictionary mapping modes to their specific final "synthesis" system prompts.
@@ -176,6 +185,7 @@ class EGO:
             "deeper": FINAL_SYNTHESIS_PROMPT_EN_DEEPER,
             "research": FINAL_SYNTHESIS_PROMPT_EN_RESEARCH,
             "agent": FINAL_SYNTHESIS_PROMPT_EN_AGENT,
+            "creative": FINAL_SYNTHESIS_PROMPT_EN_CREATIVE,
         }
 
     def _get_config_for_mode(self, mode: str) -> ModeConfig:
@@ -341,6 +351,50 @@ class EGO:
             # --- Log unexpected errors and re-raise to avoid silent failures.
             logging.error(f"An unexpected error occurred during summarization: {e}", exc_info=True)
             raise
+
+    async def _compress_context_if_needed(
+        self, model: str, chat_history: str, thoughts_history: str
+    ) -> tuple[str, str, bool]:
+        """
+        Proactively compresses long context blocks so agentic execution can continue
+        even in high-history sessions.
+        """
+        total_len = len(chat_history or "") + len(thoughts_history or "")
+        if total_len <= self.MAX_CONTEXT_CHARS:
+            return chat_history, thoughts_history, False
+
+        target_total = max(self.COMPRESSED_CONTEXT_TARGET_CHARS, 1600)
+        chat_len = len(chat_history or "")
+        thoughts_len = len(thoughts_history or "")
+
+        if chat_len == 0 and thoughts_len == 0:
+            return chat_history, thoughts_history, False
+
+        if chat_len == 0:
+            chat_target, thoughts_target = 0, target_total
+        elif thoughts_len == 0:
+            chat_target, thoughts_target = target_total, 0
+        else:
+            chat_target = max(800, int(target_total * (chat_len / max(total_len, 1))))
+            thoughts_target = max(800, target_total - chat_target)
+
+        compressed_chat = (
+            await self._summarize_block(model, "CHAT HISTORY", chat_history, target_chars=chat_target)
+            if chat_history
+            else ""
+        )
+        compressed_thoughts = (
+            await self._summarize_block(
+                model, "THOUGHTS HISTORY", thoughts_history, target_chars=thoughts_target
+            )
+            if thoughts_history
+            else ""
+        )
+
+        logging.info(
+            f"[CONTEXT COMPRESSION] Applied proactive compression: {total_len} -> {len(compressed_chat) + len(compressed_thoughts)} chars"
+        )
+        return compressed_chat, compressed_thoughts, True
 
     def _extract_json_from_text(self, text: str) -> dict[str, Any] | None:
         """
@@ -585,10 +639,21 @@ class EGO:
             f"chat_history length: {len(chat_history)}, processed_thoughts length: {len(processed_thoughts)}"
         )
 
+        chat_history_for_prompt, thoughts_for_prompt, compressed_context = (
+            await self._compress_context_if_needed(
+                mode_config.model_name, chat_history, processed_thoughts
+            )
+        )
+        if compressed_context:
+            final_custom_instructions = (
+                f"{final_custom_instructions}\n\n[CONTEXT STRATEGY]\nLong session context was compressed. "
+                "Preserve decisions, constraints, facts, and unfinished plan steps."
+            )
+
         full_prompt = mode_config.thinking_prompt.format(
             custom_instructions=final_custom_instructions,
-            chat_history=chat_history,
-            thoughts_history=processed_thoughts,
+            chat_history=chat_history_for_prompt,
+            thoughts_history=thoughts_for_prompt,
             user_query=query,
             retrieved_snippets=retrieved_snippets_text,
             user_profile=user_profile or "Not available yet.",
@@ -655,7 +720,10 @@ class EGO:
                     mode_config.model_name, "CHAT HISTORY", chat_history, target_chars=1600
                 )
                 thoughts_summary = await self._summarize_block(
-                    mode_config.model_name, "THOUGHTS HISTORY", thoughts_history, target_chars=1600
+                    mode_config.model_name,
+                    "THOUGHTS HISTORY",
+                    processed_thoughts,
+                    target_chars=1600,
                 )
 
                 # --- Rebuild the system instruction with the summarized histories.
@@ -898,10 +966,21 @@ class EGO:
             else:
                 processed_thoughts = thoughts_history
 
+        chat_history_for_prompt, thoughts_for_prompt, compressed_context = (
+            await self._compress_context_if_needed(
+                mode_config.model_name, chat_history, processed_thoughts
+            )
+        )
+        if compressed_context:
+            final_custom_instructions = (
+                f"{final_custom_instructions}\n\n[CONTEXT STRATEGY]\nLong session context was compressed. "
+                "Prioritize unresolved objectives, key constraints, and verified facts."
+            )
+
         full_prompt = mode_config.synthesis_prompt.format(
             custom_instructions=final_custom_instructions,
-            chat_history=chat_history,
-            thoughts_history=processed_thoughts,
+            chat_history=chat_history_for_prompt,
+            thoughts_history=thoughts_for_prompt,
             user_query=query,
             retrieved_snippets=retrieved_snippets_text,
         )
@@ -953,7 +1032,10 @@ class EGO:
                     mode_config.model_name, "CHAT HISTORY", chat_history, target_chars=1600
                 )
                 thoughts_summary = await self._summarize_block(
-                    mode_config.model_name, "THOUGHTS HISTORY", thoughts_history, target_chars=1600
+                    mode_config.model_name,
+                    "THOUGHTS HISTORY",
+                    processed_thoughts,
+                    target_chars=1600,
                 )
 
                 system_instruction = mode_config.synthesis_prompt.format(

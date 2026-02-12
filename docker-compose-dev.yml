@@ -33,6 +33,19 @@ services:
       exit 0;
       "
 
+  sandbox-builder:
+    image: docker:cli
+    restart: "no"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./backend/python-api:/context:ro
+    command:
+      [
+        "sh",
+        "-lc",
+        "docker build -t ${EGO_SANDBOX_IMAGE:-ego-sandbox:latest} -f /context/Dockerfile.sandbox /context"
+      ]
+
   python-api:
     build:
       context: ./backend/python-api
@@ -54,8 +67,12 @@ services:
       - S3_BUCKET_NAME=${S3_BUCKET_NAME:-ego}
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5001", "--reload", "--reload-exclude", "/app/sandbox_tmp"]
     depends_on:
-      - postgres-db
-      - minio
+      postgres-db:
+        condition: service_started
+      minio:
+        condition: service_started
+      sandbox-builder:
+        condition: service_completed_successfully
 
   go-api:
     image: ego-go-api-dev

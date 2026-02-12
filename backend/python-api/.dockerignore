@@ -8,5 +8,4 @@ ENV
 .env
 Dockerfile.dev
 Dockerfile.prod
-Dockerfile.sandbox
 sandbox_tmp

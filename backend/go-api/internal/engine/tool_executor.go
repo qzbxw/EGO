@@ -368,6 +368,10 @@ func (te *toolExecutor) getTimeoutForTool(toolName string) time.Duration {
 		return 5 * time.Minute // Multi-agent debate needs time
 	case "ego_search":
 		return 2 * time.Minute
+	case "brave_search":
+		return 2 * time.Minute
+	case "web_fetch":
+		return 90 * time.Second
 	case "ego_code_exec":
 		return 5 * time.Minute
 	default:

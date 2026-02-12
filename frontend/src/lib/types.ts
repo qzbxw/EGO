@@ -400,4 +400,4 @@ export interface ProviderTokens {
 	total_tokens: number;
 }
 export type ThemeName = 'dark' | 'light';
-export type ChatMode = 'default' | 'deeper' | 'research' | 'agent';
+export type ChatMode = 'default' | 'deeper' | 'research' | 'agent' | 'creative';
