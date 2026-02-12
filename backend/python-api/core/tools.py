@@ -477,11 +477,7 @@ class EgoCodeExec(Tool):
     _build_lock: threading.Lock = threading.Lock()
     _sandbox_dockerfile_fallback = """FROM python:3.11-slim
 
-RUN apt-get update && apt-get install -y --no-install-recommends \\
-    build-essential \\
-    && rm -rf /var/lib/apt/lists/*
-
-RUN pip install --no-cache-dir \\
+RUN pip install --no-cache-dir --prefer-binary \\
     numpy \\
     pandas \\
     matplotlib \\

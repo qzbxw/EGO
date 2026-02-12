@@ -83,7 +83,7 @@ services:
       minio:
         condition: service_started
       sandbox-builder:
-        condition: service_completed_successfully
+        condition: service_started
 
   go-api:
     build:
