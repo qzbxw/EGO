@@ -17,6 +17,7 @@ on:
 env:
   DOCKER_BUILDKIT: 1
   COMPOSE_DOCKER_CLI_BUILD: 1
+  DOCKER_PRUNE_UNTIL: 168h
 
 jobs:
   # ============================================
@@ -69,10 +70,31 @@ jobs:
             echo "✅ Code updated to: $(git rev-parse --short HEAD)"
           EOF
 
+      - name: 🧹 Pre-build Docker cleanup (free disk)
+        run: |
+          echo "🧹 Running pre-build Docker cleanup on VPS..."
+          ssh -p ${{ secrets.SSH_PORT || '22' }} -o ServerAliveInterval=60 -o ServerAliveCountMax=10 -o TCPKeepAlive=yes ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+            set -euo pipefail
+            cd ${{ secrets.DEPLOY_PATH || '/home/ubuntu/EGO' }}
+
+            echo "Docker disk usage before cleanup:"
+            docker system df || true
+
+            # Keep running containers untouched; remove stale artifacts only.
+            docker container prune -f || true
+            docker image prune -af --filter "until=${{ env.DOCKER_PRUNE_UNTIL }}" || true
+            docker builder prune -af --filter "until=${{ env.DOCKER_PRUNE_UNTIL }}" || true
+            docker network prune -f || true
+
+            echo "Docker disk usage after cleanup:"
+            docker system df || true
+          EOF
+
       - name: 🐳 Build Docker images
         run: |
           echo "🐳 Building Docker images with cache..."
           ssh -p ${{ secrets.SSH_PORT || '22' }} -o ServerAliveInterval=60 -o ServerAliveCountMax=10 -o TCPKeepAlive=yes ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+            set -euo pipefail
             cd ${{ secrets.DEPLOY_PATH || '/home/ubuntu/EGO' }}
             export DOCKER_BUILDKIT=1
             export COMPOSE_DOCKER_CLI_BUILD=1
@@ -93,6 +115,7 @@ jobs:
         run: |
           echo "🔄 Restarting services..."
           ssh -p ${{ secrets.SSH_PORT || '22' }} -o ServerAliveInterval=60 -o ServerAliveCountMax=10 -o TCPKeepAlive=yes ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+            set -euo pipefail
             cd ${{ secrets.DEPLOY_PATH || '/home/ubuntu/EGO' }}
 
             echo "Stopping old containers..."
@@ -104,12 +127,20 @@ jobs:
             echo "✅ Services restarted"
           EOF
 
-      - name: 🧹 Cleanup old images
+      - name: 🧹 Post-deploy Docker cleanup
         run: |
-          echo "🧹 Cleaning up old Docker images..."
+          echo "🧹 Cleaning up stale Docker artifacts..."
           ssh -p ${{ secrets.SSH_PORT || '22' }} -o ServerAliveInterval=60 -o ServerAliveCountMax=10 -o TCPKeepAlive=yes ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
-            docker image prune -f
-            echo "✅ Cleanup complete"
+            set -euo pipefail
+
+            docker container prune -f || true
+            docker image prune -af --filter "until=${{ env.DOCKER_PRUNE_UNTIL }}" || true
+            docker builder prune -af --filter "until=${{ env.DOCKER_PRUNE_UNTIL }}" || true
+            docker network prune -f || true
+
+            echo "Docker disk usage after post-deploy cleanup:"
+            docker system df || true
+            echo "✅ Post-deploy cleanup complete"
           EOF
 
       - name: 🔍 Health Check
