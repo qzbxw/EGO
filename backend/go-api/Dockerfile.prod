@@ -14,7 +14,7 @@ COPY . .
 # Build with cache
 RUN --mount=type=cache,target=/go/pkg/mod,sharing=locked \
     --mount=type=cache,target=/root/.cache/go-build,sharing=locked \
-    CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags="-w -s" -o /app/go-api ./cmd/api
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/go-api ./cmd/api
 
 # Runtime stage
 FROM alpine:latest

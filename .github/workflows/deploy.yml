@@ -80,10 +80,13 @@ jobs:
             echo "Docker disk usage before cleanup:"
             docker system df || true
 
-            # Keep running containers untouched; remove stale artifacts only.
+            # On small disks we must stop stack first; otherwise active images stay pinned.
+            docker compose down --remove-orphans || true
+
+            # Aggressive cleanup before build (do NOT prune volumes to avoid data loss).
             docker container prune -f || true
-            docker image prune -af --filter "until=${{ env.DOCKER_PRUNE_UNTIL }}" || true
-            docker builder prune -af --filter "until=${{ env.DOCKER_PRUNE_UNTIL }}" || true
+            docker image prune -af || true
+            docker builder prune -af || true
             docker network prune -f || true
 
             echo "Docker disk usage after cleanup:"
@@ -117,9 +120,6 @@ jobs:
           ssh -p ${{ secrets.SSH_PORT || '22' }} -o ServerAliveInterval=60 -o ServerAliveCountMax=10 -o TCPKeepAlive=yes ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
             set -euo pipefail
             cd ${{ secrets.DEPLOY_PATH || '/home/ubuntu/EGO' }}
-
-            echo "Stopping old containers..."
-            docker compose down
 
             echo "Starting new containers..."
             docker compose up -d
