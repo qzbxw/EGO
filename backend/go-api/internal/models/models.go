@@ -15,7 +15,7 @@ type StreamRequest struct {
 	Query               string        `json:"query" validate:"max=200000"`
 	Mode                string        `json:"mode" validate:"required"`
 	SessionUUID         *string       `json:"session_uuid,omitempty"`
-	Files               []FilePayload `json:"files,omitempty" validate:"max=5,dive"`
+	Files               []FilePayload `json:"files,omitempty" validate:"dive"`
 	CustomInstructions  *string       `json:"custom_instructions,omitempty"`
 	IsRegeneration      bool          `json:"is_regeneration,omitempty"`
 	RequestLogIDToRegen int64         `json:"request_log_id_to_regen,omitempty"`

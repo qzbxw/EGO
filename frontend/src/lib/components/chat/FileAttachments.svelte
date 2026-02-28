@@ -56,11 +56,7 @@
 			currentTotalSize += file.size;
 		}
 
-		if (attachedFiles.length + validFiles.length > 10) {
-			toast.warning($_('chat.max_files_exceeded') || 'Максимум 10 файлов');
-		}
-
-		const newFiles = validFiles.slice(0, Math.max(0, 10 - attachedFiles.length));
+		const newFiles = validFiles;
 		attachedFiles = [...attachedFiles, ...newFiles];
 
 		// Trigger upload for new files
@@ -79,7 +75,12 @@
 			formData.append('files', file);
 			// Pass current session UUID if available to associate immediately
 			const sessionId = chatStore.stream.sessionUUID || chatStore.messagesSessionUUID;
-			if (sessionId) {
+			if (
+				sessionId &&
+				/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+					sessionId
+				)
+			) {
 				formData.append('session_uuid', sessionId);
 			}
 
@@ -97,7 +98,7 @@
 		} catch (e) {
 			console.error('Upload failed:', e);
 			file.uploadStatus = 'error';
-			toast.error(`Upload failed for ${file.name}`);
+			toast.error(`${$_('chat.upload_failed') || 'Не удалось загрузить файл'}: ${file.name}`);
 		} finally {
 			attachedFiles = [...attachedFiles];
 		}

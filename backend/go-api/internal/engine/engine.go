@@ -55,8 +55,13 @@ func (p *Processor) GetLLMClient() *llmClient {
 
 // UploadFileRaw handles the raw file upload from the upload handler using a stream.
 func (p *Processor) UploadFileRaw(ctx context.Context, r io.Reader, filename, mimeType string, user *models.User, sessionUUID, uploadID string) (string, error) {
+	keySessionUUID := sessionUUID
+	if strings.TrimSpace(keySessionUUID) == "" {
+		keySessionUUID = "pending"
+	}
+
 	// Construct a storage key: uploads/{user_id}/{session_uuid}/{upload_id}_{filename}
-	key := fmt.Sprintf("uploads/%d/%s/%s_%s", user.ID, sessionUUID, uploadID, filename)
+	key := fmt.Sprintf("uploads/%d/%s/%s_%s", user.ID, keySessionUUID, uploadID, filename)
 
 	// Upload to S3 using stream
 	err := p.s3Service.UploadStream(ctx, key, mimeType, r)

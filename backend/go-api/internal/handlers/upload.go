@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"egobackend/internal/models"
 
@@ -70,9 +71,12 @@ func (h *UploadHandler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 		// Prepare full stream (head + rest)
 		fullStream := io.MultiReader(bytes.NewReader(head[:n]), file)
 
-		sessionUUID := r.FormValue("session_uuid")
-		if sessionUUID == "" {
-			sessionUUID = "temp_" + uuid.New().String()
+		sessionUUID := strings.TrimSpace(r.FormValue("session_uuid"))
+		if sessionUUID != "" {
+			if _, err := uuid.Parse(sessionUUID); err != nil {
+				// Ignore temporary frontend IDs like "new"/"new-..." and let DB create temp session.
+				sessionUUID = ""
+			}
 		}
 
 		// Generate a unique upload ID for this file
