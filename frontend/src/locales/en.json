@@ -58,7 +58,8 @@
 		"creating_session": "Creating a session for you…",
 		"media_only_ego_gemini": "Advanced files (Video, Audio, PDF) are only supported for EGO and Gemini models.",
 		"edit_failed_retry": "Failed to save edit.",
-		"retry": "Retry"
+		"retry": "Retry",
+		"thought_process": "Thought process"
 	},
 	"tools": {
 		"generic": {

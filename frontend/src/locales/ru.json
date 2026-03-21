@@ -58,7 +58,8 @@
 		"creating_session": "Создаём сессию для вас…",
 		"media_only_ego_gemini": "Сложные файлы (Видео, Аудио, PDF) поддерживаются только моделями EGO и Gemini.",
 		"edit_failed_retry": "Не удалось сохранить изменения.",
-		"retry": "Повторить"
+		"retry": "Повторить",
+		"thought_process": "Ход мыслей"
 	},
 	"tools": {
 		"generic": {

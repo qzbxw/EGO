@@ -463,10 +463,6 @@ func (p *Processor) processThoughtOnly(thoughtData *models.ThoughtResponseWithDa
 		"plan_status":      thought.PlanStatus,
 	})
 
-	if strings.TrimSpace(thought.Commentary) != "" {
-		callback("commentary", map[string]string{"text": thought.Commentary})
-	}
-
 	if thought.ThoughtHeader != "" {
 		log.Printf("[DEBUG] Sending thought_header event: '%s'", thought.ThoughtHeader)
 		callback("thought_header", map[string]string{"header": thought.ThoughtHeader})
