@@ -1005,14 +1005,30 @@ class EGO:
 
         # --- Main loop for API calls with retry-and-shrink logic.
         for attempt in range(self.MAX_ATTEMPTS):
-            has_yielded = False
+            has_visible_text = False
             try:
                 # --- Use 'async for' to iterate over the streamed response chunks.
                 async for chunk in self.backend.generate_synthesis_stream(
                     model=mode_config.model_name, config=generation_config, prompt=prompt_parts
                 ):
                     yield chunk
-                    has_yielded = True
+                    if isinstance(chunk, str) and chunk.strip():
+                        has_visible_text = True
+
+                if not has_visible_text:
+                    logging.warning(
+                        "synthesize_stream finished without visible text; falling back to non-stream generation"
+                    )
+                    fallback_text, _ = await self.backend.generate(
+                        preferred_model=mode_config.model_name,
+                        config=generation_config,
+                        prompt_parts=prompt_parts,
+                    )
+                    fallback_text = (fallback_text or "").strip()
+                    if fallback_text:
+                        yield fallback_text
+                        return
+
                 return  # --- Gracefully exit after successful stream completion.
 
             except (
@@ -1027,7 +1043,7 @@ class EGO:
                 if attempt >= self.MAX_ATTEMPTS - 1:
                     break
 
-                if has_yielded:
+                if has_visible_text:
                     # We partially streamed a response, but then failed.
                     # We are about to retry, which means a new stream will start.
                     # We must inform the consumer to clear the partial output.
