@@ -190,6 +190,15 @@
 							<ThoughtChain thoughts={message.thoughts} />
 						{/if}
 
+						{#if message.isCancelled && !message.text}
+							<div
+								class="flex items-center gap-1.5 rounded-lg bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400"
+							>
+								<StopCircle class="h-3 w-3" />
+								<span>Generation stopped</span>
+							</div>
+						{/if}
+
 						{#if message.text}
 							<div
 								in:fade={{ duration: 300, easing: cubicOut }}

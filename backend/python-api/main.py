@@ -954,12 +954,6 @@ async def generate_thought(request: Request):
                             },
                         }
                     )
-                    await event_queue.put(
-                        {
-                            "type": "commentary",
-                            "data": {"text": progress_header},
-                        }
-                    )
 
                     # --- Callback for real-time tool events (e.g. SuperEGO)
                     async def emit_event(event_data: dict):

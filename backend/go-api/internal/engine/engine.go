@@ -130,7 +130,6 @@ func (p *Processor) ProcessRequest(ctx context.Context, req models.StreamRequest
 	callback("log_created", map[string]int64{"temp_id": tempID, "log_id": logID})
 
 	// 3. File and Context Building
-	emitCommentary(callback, "Collecting recent context, files, and plan state.")
 	newlyAttachedIDs, err := p.handleFileUploads(ctx, req, user, session, stats)
 	if err != nil {
 		log.Printf("[Processor] Non-fatal error during file uploads: %v", err)
@@ -155,7 +154,6 @@ func (p *Processor) ProcessRequest(ctx context.Context, req models.StreamRequest
 
 	// 4. Agent Execution: Thinking and Synthesis
 	thinkingStartTime := time.Now()
-	emitCommentary(callback, "Working through the request step by step.")
 	thoughtsHistory, err := p.runThinkingCycle(ctx, user, session, req, llmContext, callback, stats)
 	if err != nil {
 		log.Printf("[Processor] Warning: thinking cycle failed: %v. Proceeding to synthesis.", err)
@@ -163,7 +161,6 @@ func (p *Processor) ProcessRequest(ctx context.Context, req models.StreamRequest
 	thinkingDuration := time.Since(thinkingStartTime)
 
 	synthesisStartTime := time.Now()
-	emitCommentary(callback, "Turning the working notes into a clear answer.")
 	finalResponse, err := p.synthesizeFinalResponse(ctx, user, session, req, llmContext, thoughtsHistory, callback, logID, stats)
 	synthesisDuration := time.Since(synthesisStartTime)
 
@@ -290,7 +287,6 @@ func (p *Processor) runThinkingCycle(ctx context.Context, user *models.User, ses
 		}
 
 		callback("thought_header", map[string]string{"header": fmt.Sprintf("Thinking (Step %d)", i+1)})
-		emitCommentary(callback, fmt.Sprintf("Checking the next best move for step %d.", i+1))
 
 		iterationStartTime := time.Now()
 		// Refresh active plan on every iteration so Python always receives
@@ -342,7 +338,6 @@ func (p *Processor) runThinkingCycle(ctx context.Context, user *models.User, ses
 
 func (p *Processor) synthesizeFinalResponse(ctx context.Context, user *models.User, session *models.ChatSession, req models.StreamRequest, llmCtx *llmContext, thoughtsHistory []map[string]interface{}, callback EventCallback, logID int64, stats *requestStats) (string, error) {
 	callback("thought_header", map[string]string{"header": "Synthesizing response..."})
-	emitCommentary(callback, "Drafting the final response now.")
 	memEnabled := true // Default to true
 	if req.MemoryEnabled != nil {
 		memEnabled = *req.MemoryEnabled

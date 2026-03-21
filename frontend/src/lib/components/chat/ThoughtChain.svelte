@@ -69,10 +69,10 @@
 			step.plan_status = step.plan_status || (s.plan_status as string);
 
 			return step;
-		})
+		}).filter((step) => !(step.type === 'tool' && step.toolName === 'manage_plan'))
 	);
 
-	let activePlan = $derived(chatStore.activePlan);
+	let activePlan = $derived(isThinking ? chatStore.activePlan : null);
 
 	let isExpanded = $state(false);
 	let expandedStepIndex = $state<number | null>(null);
@@ -178,11 +178,7 @@
 	let displayCurrentHeader = $derived(
 		isThinking &&
 			currentHeader &&
-			(
-				thoughts.length === 0 ||
-				thoughts[thoughts.length - 1].type !== 'commentary' ||
-				thoughts[thoughts.length - 1].header !== currentHeader
-			)
+			(thoughts.length === 0 || thoughts[thoughts.length - 1].header !== currentHeader)
 	);
 </script>
 
