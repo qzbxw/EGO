@@ -22,6 +22,7 @@ export interface StreamStoreState {
 	recoveredFromRest: boolean;
 	lastSeqNumber: number;
 	activePlan: SessionPlan | null;
+	superEgoDebate?: unknown | null;
 }
 
 export interface User {
@@ -66,9 +67,10 @@ export interface BackendThoughtStep extends ThoughtStep {
 
 export interface ThoughtStep {
 	id: string;
-	type: 'thought' | 'tool';
+	type: 'thought' | 'tool' | 'commentary';
 	header: string;
 	content?: string;
+	commentary?: string;
 	reasoning?: string;
 	status?: 'running' | 'completed' | 'failed';
 	toolName?: string;
@@ -214,11 +216,19 @@ export interface WsThoughtEvent extends WsEventBase {
 	data: {
 		thoughts?: string;
 		content?: string;
+		commentary?: string;
 		tool_reasoning?: string;
 		thoughts_header?: string;
 		confidence_score?: number;
 		self_critique?: string;
 		plan_status?: string;
+	};
+}
+
+export interface WsCommentaryEvent extends WsEventBase {
+	type: 'commentary';
+	data: {
+		text: string;
 	};
 }
 
@@ -322,6 +332,7 @@ export type WsEvent =
 	| WsProcessResumedEvent
 	| WsTextStreamResetEvent
 	| WsPlanUpdatedEvent
+	| WsCommentaryEvent
 	| WsThoughtEvent
 	| WsToolCallEvent
 	| WsToolOutputEvent

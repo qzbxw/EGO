@@ -509,7 +509,8 @@ export const chatStore = {
 				isRecovering: false,
 				recoveredFromRest: false,
 				lastSeqNumber: -1,
-				activePlan: preservePlan ? stream.activePlan : null
+				activePlan: preservePlan ? stream.activePlan : null,
+				superEgoDebate: null
 			};
 		}
 	},
@@ -542,7 +543,8 @@ export const chatStore = {
 				isRecovering: true,
 				recoveredFromRest: true,
 				lastSeqNumber: -1,
-				activePlan: stream.sessionUUID === sessionUUID ? stream.activePlan : null
+				activePlan: stream.sessionUUID === sessionUUID ? stream.activePlan : null,
+				superEgoDebate: null
 			};
 		}
 	},

@@ -184,14 +184,31 @@ export const load: PageLoad = async ({
 			});
 			if (log.final_response) {
 				// Normalize thoughts if they exist
-				const normalizedThoughts = log.thoughts?.map((t: BackendThoughtStep) => ({
-					...t,
-					header:
-						t.header || t.thoughts_header || (t.type === 'thought' ? 'Thinking' : 'Using tool'),
-					reasoning: t.reasoning || t.tool_reasoning,
-					content: t.content || t.thoughts,
-					toolName: t.toolName || t.tool_name
-				})) as ThoughtStep[];
+				const normalizedThoughts = log.thoughts?.flatMap((t: BackendThoughtStep) => {
+					const normalized = {
+						...t,
+						header:
+							t.header || t.thoughts_header || (t.type === 'thought' ? 'Thinking' : 'Using tool'),
+						reasoning: t.reasoning || t.tool_reasoning,
+						content: t.content || t.thoughts,
+						toolName: t.toolName || t.tool_name
+					} as ThoughtStep;
+
+					const commentary = (t.commentary || '').trim();
+					if (!commentary) {
+						return [normalized];
+					}
+
+					return [
+						{
+							id: `commentary_${normalized.id || normalized.header}_${commentary}`,
+							type: 'commentary',
+							header: commentary,
+							content: commentary
+						} as ThoughtStep,
+						normalized
+					];
+				}) as ThoughtStep[];
 
 				messages.push({
 					author: 'ego',

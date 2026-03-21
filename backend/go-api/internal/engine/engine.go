@@ -26,6 +26,14 @@ import (
 // EventCallback is a function type for sending streaming events back to the client.
 type EventCallback func(eventType string, data interface{})
 
+func emitCommentary(callback EventCallback, text string) {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return
+	}
+	callback("commentary", map[string]string{"text": text})
+}
+
 // Processor is the central orchestrator for handling user requests.
 type Processor struct {
 	db            *database.DB
@@ -94,6 +102,7 @@ func (p *Processor) ClearMemory(ctx context.Context, userID string) error {
 // ProcessRequest is the main entry point for handling a streaming request.
 func (p *Processor) ProcessRequest(ctx context.Context, req models.StreamRequest, user *models.User, tempID int64, callback EventCallback) {
 	// 1. Preparation
+	emitCommentary(callback, "Preparing the session and checking your latest request.")
 	fullUser, err := p.db.GetUserByID(user.ID)
 	if err != nil {
 		callback("error", map[string]string{"message": "Error loading user data: " + err.Error()})
@@ -121,6 +130,7 @@ func (p *Processor) ProcessRequest(ctx context.Context, req models.StreamRequest
 	callback("log_created", map[string]int64{"temp_id": tempID, "log_id": logID})
 
 	// 3. File and Context Building
+	emitCommentary(callback, "Collecting recent context, files, and plan state.")
 	newlyAttachedIDs, err := p.handleFileUploads(ctx, req, user, session, stats)
 	if err != nil {
 		log.Printf("[Processor] Non-fatal error during file uploads: %v", err)
@@ -145,6 +155,7 @@ func (p *Processor) ProcessRequest(ctx context.Context, req models.StreamRequest
 
 	// 4. Agent Execution: Thinking and Synthesis
 	thinkingStartTime := time.Now()
+	emitCommentary(callback, "Working through the request step by step.")
 	thoughtsHistory, err := p.runThinkingCycle(ctx, user, session, req, llmContext, callback, stats)
 	if err != nil {
 		log.Printf("[Processor] Warning: thinking cycle failed: %v. Proceeding to synthesis.", err)
@@ -152,6 +163,7 @@ func (p *Processor) ProcessRequest(ctx context.Context, req models.StreamRequest
 	thinkingDuration := time.Since(thinkingStartTime)
 
 	synthesisStartTime := time.Now()
+	emitCommentary(callback, "Turning the working notes into a clear answer.")
 	finalResponse, err := p.synthesizeFinalResponse(ctx, user, session, req, llmContext, thoughtsHistory, callback, logID, stats)
 	synthesisDuration := time.Since(synthesisStartTime)
 
@@ -278,6 +290,7 @@ func (p *Processor) runThinkingCycle(ctx context.Context, user *models.User, ses
 		}
 
 		callback("thought_header", map[string]string{"header": fmt.Sprintf("Thinking (Step %d)", i+1)})
+		emitCommentary(callback, fmt.Sprintf("Checking the next best move for step %d.", i+1))
 
 		iterationStartTime := time.Now()
 		// Refresh active plan on every iteration so Python always receives
@@ -302,6 +315,7 @@ func (p *Processor) runThinkingCycle(ctx context.Context, user *models.User, ses
 			if consecutiveErrors >= maxConsecutiveErrors {
 				log.Printf("[Processor] Too many consecutive errors (%d), switching to direct response", consecutiveErrors)
 				callback("thought_header", map[string]string{"header": "Switching to direct response..."})
+				emitCommentary(callback, "Thinking hit repeated errors, so I am switching to a direct answer.")
 				return thoughtsHistory, nil
 			}
 
@@ -328,6 +342,7 @@ func (p *Processor) runThinkingCycle(ctx context.Context, user *models.User, ses
 
 func (p *Processor) synthesizeFinalResponse(ctx context.Context, user *models.User, session *models.ChatSession, req models.StreamRequest, llmCtx *llmContext, thoughtsHistory []map[string]interface{}, callback EventCallback, logID int64, stats *requestStats) (string, error) {
 	callback("thought_header", map[string]string{"header": "Synthesizing response..."})
+	emitCommentary(callback, "Drafting the final response now.")
 	memEnabled := true // Default to true
 	if req.MemoryEnabled != nil {
 		memEnabled = *req.MemoryEnabled
@@ -440,12 +455,17 @@ func (p *Processor) processThoughtOnly(thoughtData *models.ThoughtResponseWithDa
 	*thoughtsHistory = append(*thoughtsHistory, map[string]interface{}{
 		"type":             "thought",
 		"content":          thought.Thoughts,
+		"commentary":       thought.Commentary,
 		"thoughts_header":  thought.ThoughtHeader,
 		"tool_reasoning":   thought.ToolReasoning,
 		"confidence_score": thought.ConfidenceScore,
 		"self_critique":    thought.SelfCritique,
 		"plan_status":      thought.PlanStatus,
 	})
+
+	if strings.TrimSpace(thought.Commentary) != "" {
+		callback("commentary", map[string]string{"text": thought.Commentary})
+	}
 
 	if thought.ThoughtHeader != "" {
 		log.Printf("[DEBUG] Sending thought_header event: '%s'", thought.ThoughtHeader)

@@ -134,6 +134,7 @@ type LLMSettings struct {
 // ThoughtResponse represents the structured 'thought' part of the Python service's response.
 type ThoughtResponse struct {
 	Thoughts          string     `json:"thoughts"`
+	Commentary        string     `json:"commentary"`
 	ToolReasoning     string     `json:"tool_reasoning"`
 	ToolCalls         []ToolCall `json:"tool_calls"`
 	ThoughtHeader     string     `json:"thoughts_header"`

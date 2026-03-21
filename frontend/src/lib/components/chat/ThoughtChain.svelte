@@ -48,6 +48,14 @@
 				step.header = step.header || `${step.toolName} result`;
 				step.status = s.error ? 'failed' : 'completed';
 				step.content = step.content || (s.output as string) || (s.error as string);
+			} else if (
+				step.type === 'commentary' ||
+				(!step.type && (s.commentary || s.header === 'Working'))
+			) {
+				step.type = 'commentary';
+				step.header = step.header || 'Working';
+				step.content =
+					step.content || (s.commentary as string) || (s.content as string) || (s.text as string);
 			} else if (!step.type) {
 				// Default to thought if type is missing
 				step.type = 'thought';
@@ -90,6 +98,8 @@
 	}
 
 	function getIcon(step: ThoughtStep) {
+		if (step.type === 'commentary') return Lightbulb;
+
 		if (step.type === 'tool') {
 			const name = step.toolName?.toLowerCase() || '';
 			if (name.includes('search')) return Search;
@@ -168,7 +178,11 @@
 	let displayCurrentHeader = $derived(
 		isThinking &&
 			currentHeader &&
-			(thoughts.length === 0 || thoughts[thoughts.length - 1].header !== currentHeader)
+			(
+				thoughts.length === 0 ||
+				thoughts[thoughts.length - 1].type !== 'commentary' ||
+				thoughts[thoughts.length - 1].header !== currentHeader
+			)
 	);
 </script>
 

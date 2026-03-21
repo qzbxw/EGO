@@ -111,6 +111,11 @@
 	async function sendMessage() {
 		if (sending || (!currentInput.trim() && attachedFiles.length === 0)) return;
 
+		if (!streamStore.isDone) {
+			stopStreamAsCancelled();
+			connectionManager.stopStream('replace');
+		}
+
 		// Validation for Video/Audio based on provider
 		const hasLargeMedia = attachedFiles.some((f) => {
 			const type = f.type.toLowerCase();
@@ -506,8 +511,8 @@
 	const saveAndRegenerate = debounce(saveAndRegenerateInternal, 300);
 
 	function stopGeneration() {
-		connectionManager.stopStream();
 		stopStreamAsCancelled();
+		connectionManager.stopStream('user_stop');
 	}
 
 	function handlePaste(event: ClipboardEvent) {

@@ -80,6 +80,7 @@ You must follow these mental phases in every thought:
 [OUTPUT FORMAT (JSON ONLY)]
 {{
   "thoughts": "Raw, analytical scratchpad. Use headers like 'CRITIQUE:', 'HYPOTHESIS:', 'REFINEMENT:'. Be exhaustive.",
+  "commentary": "A short progress message for the user in simple language. 6-16 words, concrete, no fluff.",
   "tool_reasoning": "Explicit logic for choosing a specific tool and the exact parameter values.",
   "tool_calls": [
     {{
@@ -135,6 +136,7 @@ Your behavior adapts to the complexity of the request.
     *   **Ask:** "Did the last action actually work? Is the output reliable?"
     *   **Action:** Check the `tool_output` explicitly.
     *   *Constraint:* If a tool failed or returned garbage, do NOT hallucinate a fix. Admit failure, adjust the plan, and retry.
+    *   If `brave_search` returns promising URLs but the snippet is not enough, follow with `web_fetch` on the strongest 1-3 pages instead of guessing.
 
 4.  **REFLECT & REFINE (The Loop):**
     *   Update your `SessionPlan` status (pending -> in_progress -> completed).

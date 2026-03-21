@@ -9,6 +9,7 @@ import re
 import socket
 import tempfile
 import threading
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -328,6 +329,9 @@ class BraveSearch(Tool):
 class WebFetch(Tool):
     """A tool that fetches and extracts clean text from a web page."""
 
+    _host_lock = threading.Lock()
+    _last_request_at: dict[str, float] = {}
+
     def __init__(self):
         super().__init__(
             name="web_fetch",
@@ -335,10 +339,85 @@ class WebFetch(Tool):
         )
         self.timeout = float(os.getenv("WEB_FETCH_TIMEOUT_SECONDS", "15"))
         self.max_chars = max(2000, int(os.getenv("WEB_FETCH_MAX_CHARS", "12000")))
+        self.max_bytes = max(64_000, int(os.getenv("WEB_FETCH_MAX_BYTES", "1500000")))
+        self.min_host_interval = max(
+            0.0, float(os.getenv("WEB_FETCH_MIN_HOST_INTERVAL_SECONDS", "1.5"))
+        )
         self.user_agent = os.getenv(
             "WEB_FETCH_USER_AGENT",
-            "EGO-WebFetch/1.0 (+https://example.com; content extraction)",
+            (
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+            ),
         )
+
+    @staticmethod
+    def _clean_text(text: str) -> str:
+        return re.sub(r"\s+", " ", (text or "")).strip()
+
+    def _respect_host_interval(self, host: str) -> None:
+        if self.min_host_interval <= 0:
+            return
+
+        with self._host_lock:
+            now = time.monotonic()
+            last_hit = self._last_request_at.get(host)
+            wait_for = 0.0 if last_hit is None else max(0.0, self.min_host_interval - (now - last_hit))
+            if wait_for > 0:
+                time.sleep(wait_for)
+            self._last_request_at[host] = time.monotonic()
+
+    def _make_session(self) -> requests.Session:
+        session = requests.Session()
+        session.headers.update(
+            {
+                "User-Agent": self.user_agent,
+                "Accept": (
+                    "text/html,application/xhtml+xml,application/xml;q=0.9,"
+                    "text/plain;q=0.8,application/json;q=0.7,*/*;q=0.5"
+                ),
+                "Accept-Language": "en-US,en;q=0.8",
+                "Cache-Control": "no-cache",
+                "Pragma": "no-cache",
+            }
+        )
+        return session
+
+    def _extract_html_content(self, html: str, final_url: str) -> str:
+        soup = BeautifulSoup(html, "html.parser")
+        for tag in soup(["script", "style", "noscript", "svg", "iframe"]):
+            tag.decompose()
+
+        title = ""
+        if soup.title and soup.title.string:
+            title = self._clean_text(soup.title.string)
+
+        description = ""
+        description_tag = soup.find("meta", attrs={"name": re.compile("^description$", re.I)})
+        if description_tag:
+            description = self._clean_text(description_tag.get("content", ""))
+
+        content_root = soup.select_one("main, article, [role='main']") or soup.body or soup
+        paragraphs = [
+            self._clean_text(node.get_text(" ", strip=True))
+            for node in content_root.find_all(["h1", "h2", "h3", "p", "li"])
+        ]
+        text = "\n".join(line for line in paragraphs if line)
+        if not text:
+            text = self._clean_text(content_root.get_text("\n", strip=True))
+
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        if len(text) > self.max_chars:
+            text = text[: self.max_chars] + "\n...[truncated]"
+
+        lines = [f"Fetched URL: {final_url}"]
+        if title:
+            lines.append(f"Title: {title}")
+        if description:
+            lines.append(f"Summary: {description}")
+        lines.append("Content:")
+        lines.append(text or "[No readable text extracted]")
+        return "\n".join(lines)
 
     def _is_safe_public_url(self, raw_url: str) -> tuple[bool, str]:
         parsed = urlparse(raw_url)
@@ -377,36 +456,42 @@ class WebFetch(Tool):
         if not is_safe:
             return f"Blocked URL: {reason}"
 
-        headers = {"User-Agent": self.user_agent}
-        resp = requests.get(url, headers=headers, timeout=self.timeout, allow_redirects=True)
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower()
+        if host:
+            self._respect_host_interval(host)
+
+        session = self._make_session()
+        resp = session.get(url, timeout=self.timeout, allow_redirects=True)
         resp.raise_for_status()
 
         content_type = (resp.headers.get("Content-Type") or "").lower()
+        content_length = resp.headers.get("Content-Length")
         final_url = resp.url
+        final_safe, final_reason = self._is_safe_public_url(final_url)
+        if not final_safe:
+            return f"Blocked final URL after redirect: {final_reason}"
+
+        if content_length:
+            try:
+                if int(content_length) > self.max_bytes:
+                    return (
+                        f"Fetched URL: {final_url}\nContent-Type: {content_type}\n"
+                        "The page is too large to fetch safely in full. Narrow the request or fetch a different page."
+                    )
+            except ValueError:
+                pass
 
         if "text/html" in content_type:
-            soup = BeautifulSoup(resp.text, "html.parser")
-            for tag in soup(["script", "style", "noscript", "svg"]):
-                tag.decompose()
-
-            title = ""
-            if soup.title and soup.title.string:
-                title = soup.title.string.strip()
-
-            text = soup.get_text(separator="\n", strip=True)
-            text = re.sub(r"\n{3,}", "\n\n", text)
-            if len(text) > self.max_chars:
-                text = text[: self.max_chars] + "\n...[truncated]"
-
-            lines = [f"Fetched URL: {final_url}"]
-            if title:
-                lines.append(f"Title: {title}")
-            lines.append("Content:")
-            lines.append(text or "[No readable text extracted]")
-            return "\n".join(lines)
+            html = resp.text
+            if len(html) > self.max_bytes:
+                html = html[: self.max_bytes]
+            return self._extract_html_content(html, final_url)
 
         if content_type.startswith("text/") or "json" in content_type or "xml" in content_type:
             text = resp.text
+            if len(text) > self.max_bytes:
+                text = text[: self.max_bytes]
             if len(text) > self.max_chars:
                 text = text[: self.max_chars] + "\n...[truncated]"
             return f"Fetched URL: {final_url}\nContent-Type: {content_type}\n\n{text}"

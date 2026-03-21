@@ -98,6 +98,10 @@ class Thought(BaseModel):
     thoughts: str = Field(
         description="A detailed thought process, including reasoning, potential code, or problem-solving steps. Include self-critique and certainty inline within the thoughts when relevant."
     )
+    commentary: str = Field(
+        default="",
+        description="A short plain-language progress update for the user. Keep it simple, concrete, and human-friendly.",
+    )
     tool_reasoning: str = Field(
         description="If tools are needed, explain why, what kind of tool, and the specific task it should perform. If no tool is needed, this field must be an empty string."
     )
@@ -693,6 +697,7 @@ class EGO:
                     )
                     fallback_thought = Thought(
                         thoughts="The model's response was not valid JSON. A safe fallback was generated. Note: provider returned unparsable text.",
+                        commentary="The reasoning response came back malformed, so I am falling back safely.",
                         tool_reasoning="",
                         tool_calls=[],
                         thoughts_header="JSON Parsing Error",
@@ -747,6 +752,7 @@ class EGO:
         )
         fallback_thought = Thought(
             thoughts="Failed to generate a thought after multiple context reduction attempts. Likely due to excessive context size or a persistent API error.",
+            commentary="The reasoning step kept failing, so I am stopping the loop safely.",
             tool_reasoning="",
             tool_calls=[],
             thoughts_header="Processing Error",

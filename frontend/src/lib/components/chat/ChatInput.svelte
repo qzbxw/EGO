@@ -40,11 +40,23 @@
 	let isTyping = $state(false);
 	let typingTimeout: ReturnType<typeof setTimeout>;
 
-	const isInputDisabled = $derived(!streamIsDone || editingLogId !== null || chatStore.isUILocked);
+	const hasDraft = $derived(Boolean(currentInput.trim()) || attachedFiles.length > 0);
+	const isInputDisabled = $derived(
+		editingLogId !== null || chatStore.isRegenerating || chatStore.isEditingSaving
+	);
+	const showInterruptSend = $derived(!streamIsDone && hasDraft);
+	const showStopOnly = $derived(!streamIsDone && !hasDraft);
+	const placeholder = $derived(
+		streamIsDone ? $_('chat.placeholder') : $_('chat.follow_up_placeholder')
+	);
 
 	function handleKeydown(e: KeyboardEvent) {
 		if (!isMobile && e.key === 'Enter' && !e.shiftKey) {
 			e.preventDefault();
+			if (!streamIsDone && !hasDraft) {
+				onstop();
+				return;
+			}
 			onsend();
 		}
 	}
@@ -136,7 +148,7 @@
 					onfocus={() => (isFocused = true)}
 					onblur={() => (isFocused = false)}
 					{onpaste}
-					placeholder={$_('chat.placeholder')}
+					placeholder={placeholder}
 					disabled={isInputDisabled}
 					class="custom-scrollbar max-h-[200px] min-h-[40px] w-full resize-none bg-transparent px-1 py-2.5 text-[15px] leading-relaxed text-text-primary placeholder:text-text-secondary/50 focus:outline-none disabled:opacity-50"
 					rows="1"
@@ -144,7 +156,7 @@
 
 				<!-- Send Button -->
 				<div class="h-10 w-10 shrink-0">
-					{#if !streamIsDone}
+					{#if showStopOnly}
 						<button
 							onclick={onstop}
 							class="group flex h-10 w-10 items-center justify-center rounded-full bg-text-primary text-secondary shadow-lg transition-all hover:scale-105 active:scale-95"
@@ -159,11 +171,13 @@
 					{:else}
 						<button
 							onclick={onsend}
-							disabled={isInputDisabled || (!currentInput.trim() && attachedFiles.length === 0)}
+							disabled={isInputDisabled || !hasDraft}
 							class="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-white shadow-lg shadow-accent/25 transition-all duration-300 hover:scale-105 hover:bg-accent-hover hover:shadow-accent/40 active:scale-95 disabled:cursor-not-allowed disabled:bg-tertiary disabled:text-text-secondary disabled:shadow-none disabled:hover:scale-100"
 							class:scale-110={isTyping && currentInput.trim().length > 0}
-							title={$_('chat.send_message')}
-							aria-label={$_('chat.send_message')}
+							title={showInterruptSend ? $_('chat.send_follow_up') : $_('chat.send_message')}
+							aria-label={showInterruptSend
+								? $_('chat.send_follow_up')
+								: $_('chat.send_message')}
 							transition:scale={{ duration: 200, easing: cubicOut }}
 						>
 							<ArrowUp class="h-5 w-5 stroke-[2.5]" />
@@ -174,9 +188,15 @@
 
 			<!-- Footer -->
 			<div class="text-center">
-				<p class="text-[10px] text-text-secondary/40 transition-opacity hover:opacity-100">
-					{$_('chat.disclaimer_small')}
-				</p>
+				{#if !streamIsDone}
+					<p class="text-[10px] text-accent/70 transition-opacity">
+						{$_('chat.follow_up_hint')}
+					</p>
+				{:else}
+					<p class="text-[10px] text-text-secondary/40 transition-opacity hover:opacity-100">
+						{$_('chat.disclaimer_small')}
+					</p>
+				{/if}
 			</div>
 		</div>
 	</div>

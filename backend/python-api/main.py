@@ -904,6 +904,9 @@ async def generate_thought(request: Request):
             ):
                 yield f"data: {json.dumps({'type': 'thought_header', 'data': {'header': thought_json['thoughts_header']}}, ensure_ascii=False)}\n\n"
 
+            if thought_json and thought_json.get("commentary"):
+                yield f"data: {json.dumps({'type': 'commentary', 'data': {'text': thought_json['commentary']}}, ensure_ascii=False)}\n\n"
+
             yield f"data: {json.dumps({'type': 'thought', 'data': thought_json}, ensure_ascii=False)}\n\n"
 
             tool_calls = thought_json.get("tool_calls", []) if thought_json else []
@@ -949,6 +952,12 @@ async def generate_thought(request: Request):
                                 "header": progress_header,
                                 "status": "running",
                             },
+                        }
+                    )
+                    await event_queue.put(
+                        {
+                            "type": "commentary",
+                            "data": {"text": progress_header},
                         }
                     )
 

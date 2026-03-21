@@ -32,10 +32,44 @@ interface ChatRequest {
 	upload_id?: string;
 }
 
-let activeAbortController: AbortController | null = null;
+type AbortMode = 'user_stop' | 'replace' | 'reconnect' | 'disconnect' | null;
+
+interface ActiveAbortMeta {
+	controller: AbortController;
+	mode: AbortMode;
+	requestId: number;
+}
+
+let activeAbortMeta: ActiveAbortMeta | null = null;
+let requestSequence = 0;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 3;
 const RECONNECT_DELAY_MS = 2000;
+
+function isActiveRequest(requestId: number) {
+	return activeAbortMeta?.requestId === requestId;
+}
+
+function appendCommentary(text: string) {
+	const normalized = text?.trim();
+	if (!normalized) return;
+
+	const lastThought = streamStore.thoughts[streamStore.thoughts.length - 1];
+	if (
+		lastThought &&
+		lastThought.type === 'commentary' &&
+		(lastThought.content || lastThought.header) === normalized
+	) {
+		return;
+	}
+
+	chatStore.appendThought({
+		id: `commentary_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+		type: 'commentary',
+		header: normalized,
+		content: normalized
+	});
+}
 
 /**
  * Sends a chat message and handles the streaming response.
@@ -46,15 +80,20 @@ export async function sendMessage(req: ChatRequest) {
 		return;
 	}
 
-	// Cancel any existing stream
-	if (activeAbortController) {
-		activeAbortController.abort();
+	if (activeAbortMeta) {
+		activeAbortMeta.mode = 'replace';
+		activeAbortMeta.controller.abort();
 	}
 
-	activeAbortController = new AbortController();
-	const signal = activeAbortController.signal;
+	const requestId = ++requestSequence;
+	const abortMeta: ActiveAbortMeta = {
+		controller: new AbortController(),
+		mode: null,
+		requestId
+	};
+	activeAbortMeta = abortMeta;
+	const signal = abortMeta.controller.signal;
 
-	// Only reset stream if we are starting a fresh request, but preserve sessionUUID if provided
 	startStream(req.session_uuid || null);
 	streamStore.streaming = true;
 
@@ -69,7 +108,6 @@ export async function sendMessage(req: ChatRequest) {
 				headers['Authorization'] = `Bearer ${token}`;
 			}
 
-			// Add maintenance bypass token if present
 			try {
 				const { getStoredBypassToken } = await import('./api/maintenance');
 				const bypassToken = getStoredBypassToken();
@@ -90,7 +128,6 @@ export async function sendMessage(req: ChatRequest) {
 
 		let response = await performRequest(auth.accessToken);
 
-		// Handle 401 and attempt refresh
 		if (response.status === 401 && auth.refreshToken) {
 			console.log('[Stream] 401 received, attempting token refresh...');
 
@@ -117,7 +154,6 @@ export async function sendMessage(req: ChatRequest) {
 				if (newToken) {
 					const { setAccessToken } = await import('./stores/auth.svelte');
 					setAccessToken(newToken);
-					// Retry the request with the new token
 					response = await performRequest(newToken);
 				}
 			} else {
@@ -137,61 +173,56 @@ export async function sendMessage(req: ChatRequest) {
 			throw new Error('Response body is null');
 		}
 
-		// Reset reconnect attempts on successful connection
 		reconnectAttempts = 0;
-
-		await readStream(response.body);
+		await readStream(response.body, requestId);
 	} catch (error: unknown) {
 		if (error instanceof Error && error.name === 'AbortError') {
-			console.log('[Stream] Request aborted by user');
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			handleEvent({ type: 'done', data: 'Aborted by user' } as any);
-		} else {
-			console.error('[Stream] Error:', error);
-			const msg = error instanceof Error ? error.message : 'Network error';
+			console.log('[Stream] Request aborted:', abortMeta.mode || 'unknown');
+			return;
+		}
 
-			// Attempt to reconnect on network errors if we have a session UUID
-			if (req.session_uuid && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-				reconnectAttempts++;
-				console.log(
-					`[Stream] Network error, attempting reconnect ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}...`
-				);
+		if (!isActiveRequest(requestId)) {
+			return;
+		}
 
-				// Set recovering flag to prevent UI from clearing state
-				streamStore.isRecovering = true;
+		console.error('[Stream] Error:', error);
+		const msg = error instanceof Error ? error.message : 'Network error';
 
-				// Show reconnection toast
-				toast.info(`Reconnecting... (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+		if (req.session_uuid && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+			reconnectAttempts++;
+			console.log(
+				`[Stream] Network error, attempting reconnect ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}...`
+			);
 
-				// Wait before reconnecting
-				await new Promise((resolve) => setTimeout(resolve, RECONNECT_DELAY_MS));
+			streamStore.isRecovering = true;
+			toast.info(`Reconnecting... (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+			await new Promise((resolve) => setTimeout(resolve, RECONNECT_DELAY_MS));
 
-				// Try to reconnect to the same session
-				try {
-					await reconnectStream(req.session_uuid);
+			try {
+				await reconnectStream(req.session_uuid);
+				streamStore.isRecovering = false;
+				toast.success('Reconnected successfully');
+				return;
+			} catch (reconnectError) {
+				console.error('[Stream] Reconnect failed:', reconnectError);
+				if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
 					streamStore.isRecovering = false;
-					toast.success('Reconnected successfully');
-					return; // Successfully reconnected, exit
-				} catch (reconnectError) {
-					console.error('[Stream] Reconnect failed:', reconnectError);
-					// If this was the last attempt, fall through to show error
-					if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-						streamStore.isRecovering = false;
-						toast.error('Failed to reconnect after multiple attempts');
-					}
+					toast.error('Failed to reconnect after multiple attempts');
 				}
 			}
-
-			// If reconnection failed or not applicable, show error
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			handleEvent({ type: 'error', data: { message: msg } } as any);
 		}
+
+		handleEvent({ type: 'error', data: { message: msg } } as WsEvent, requestId);
 	} finally {
-		activeAbortController = null;
-		// Reset recovery flag
+		if (!isActiveRequest(requestId)) {
+			return;
+		}
+
+		const abortMode = abortMeta.mode;
+		activeAbortMeta = null;
 		streamStore.isRecovering = false;
-		// Ensure stream is marked as ended if not done explicitly
-		if (streamStore.streaming) {
+
+		if (streamStore.streaming && !abortMode) {
 			endStream();
 		}
 	}
@@ -203,15 +234,20 @@ export async function sendMessage(req: ChatRequest) {
 export async function reconnectStream(sessionUUID: string) {
 	if (!auth.accessToken) return;
 
-	if (activeAbortController) {
-		activeAbortController.abort();
+	if (activeAbortMeta) {
+		activeAbortMeta.mode = 'reconnect';
+		activeAbortMeta.controller.abort();
 	}
 
-	activeAbortController = new AbortController();
-	const signal = activeAbortController.signal;
+	const requestId = ++requestSequence;
+	const abortMeta: ActiveAbortMeta = {
+		controller: new AbortController(),
+		mode: null,
+		requestId
+	};
+	activeAbortMeta = abortMeta;
+	const signal = abortMeta.controller.signal;
 
-	// Do NOT call startStream() here because it resets the stream buffer.
-	// We only want to listen for *new* events.
 	streamStore.streaming = true;
 	streamStore.sessionUUID = sessionUUID;
 
@@ -224,7 +260,6 @@ export async function reconnectStream(sessionUUID: string) {
 				Authorization: `Bearer ${token}`
 			};
 
-			// Add maintenance bypass token if present
 			try {
 				const { getStoredBypassToken } = await import('./api/maintenance');
 				const bypassToken = getStoredBypassToken();
@@ -249,7 +284,6 @@ export async function reconnectStream(sessionUUID: string) {
 
 		let response = await performRequest(auth.accessToken);
 
-		// Handle 401 and attempt refresh
 		if (response.status === 401 && auth.refreshToken) {
 			console.log('[Stream] 401 received during reconnect, attempting token refresh...');
 
@@ -285,34 +319,36 @@ export async function reconnectStream(sessionUUID: string) {
 			}
 		}
 
-		if (!response.ok) {
-			// Likely 400 or no active stream. Just stop quietly.
+		if (!response.ok || !response.body) {
 			streamStore.streaming = false;
 			return;
 		}
 
-		if (!response.body) {
-			streamStore.streaming = false;
-			return;
-		}
-
-		// Reset reconnect attempts on successful reconnection
 		reconnectAttempts = 0;
-
-		await readStream(response.body);
+		await readStream(response.body, requestId);
 	} catch (error: unknown) {
 		if (error instanceof Error && error.name === 'AbortError') {
-			// User navigated away or stopped.
-		} else {
-			console.error('[Stream] Reconnect error:', error);
+			return;
 		}
+
+		if (!isActiveRequest(requestId)) {
+			return;
+		}
+
+		console.error('[Stream] Reconnect error:', error);
 	} finally {
-		activeAbortController = null;
-		streamStore.streaming = false;
+		if (!isActiveRequest(requestId)) {
+			return;
+		}
+
+		if (!abortMeta.mode) {
+			streamStore.streaming = false;
+		}
+		activeAbortMeta = null;
 	}
 }
 
-async function readStream(readableStream: ReadableStream<Uint8Array>) {
+async function readStream(readableStream: ReadableStream<Uint8Array>, requestId: number) {
 	const reader = readableStream.getReader();
 	const decoder = new TextDecoder();
 	let buffer = '';
@@ -335,7 +371,7 @@ async function readStream(readableStream: ReadableStream<Uint8Array>) {
 				try {
 					const jsonStr = part.trim().slice(6);
 					const event = JSON.parse(jsonStr) as WsEvent;
-					handleEvent(event);
+					handleEvent(event, requestId);
 				} catch (e) {
 					console.error('[Stream] JSON parse error:', e, part);
 				}
@@ -347,7 +383,7 @@ async function readStream(readableStream: ReadableStream<Uint8Array>) {
 		try {
 			const jsonStr = buffer.trim().slice(6);
 			const event = JSON.parse(jsonStr) as WsEvent;
-			handleEvent(event);
+			handleEvent(event, requestId);
 		} catch {
 			/* ignore end of stream garbage */
 		}
@@ -357,13 +393,12 @@ async function readStream(readableStream: ReadableStream<Uint8Array>) {
 /**
  * Handles a single event from the stream.
  */
-function handleEvent(event: WsEvent) {
-	const { type } = event;
-
-	// Update stream store with current thought/header for UI
-	if (type === 'thought_header') {
-		// Just purely for UI feedback if needed
+function handleEvent(event: WsEvent, requestId?: number) {
+	if (requestId !== undefined && !isActiveRequest(requestId)) {
+		return;
 	}
+
+	const { type } = event;
 
 	switch (type) {
 		case 'session_created':
@@ -375,10 +410,8 @@ function handleEvent(event: WsEvent) {
 		case 'log_created':
 			if (event.data && event.data.log_id) {
 				streamStore.currentLogId = event.data.log_id;
-				// Check if temp_id is provided and update chatStore
 				if (event.data.temp_id) {
 					try {
-						// This updates the optimistic message ID to the real server log ID
 						chatStore.updateMessageLogId(event.data.temp_id, event.data.log_id);
 						chatStore.setLastUserMessageLogId(event.data.temp_id, event.data.log_id);
 					} catch (e) {
@@ -394,19 +427,24 @@ function handleEvent(event: WsEvent) {
 			}
 			break;
 
+		case 'commentary':
+			if (event.data?.text) {
+				appendCommentary(event.data.text);
+			}
+			break;
+
 		case 'thought': {
 			const content = event.data.thoughts || event.data.content;
 			const reasoning = event.data.tool_reasoning;
 			const header = event.data.thoughts_header || streamStore.thoughtHeader || 'Thinking...';
 
-			console.log(`[Stream] Thought received: ${header} (${content?.length || 0} chars)`);
-
 			if (content || reasoning) {
 				chatStore.appendThought({
-					id: `thought_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+					id: `thought_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
 					type: 'thought',
 					header,
 					content: content || '',
+					commentary: event.data.commentary,
 					reasoning: reasoning || '',
 					confidence_score: event.data.confidence_score,
 					self_critique: event.data.self_critique,
@@ -419,7 +457,6 @@ function handleEvent(event: WsEvent) {
 		case 'tool_call': {
 			if (event.data && event.data.tool_name) {
 				const callId = event.data.call_id || event.data.tool_name;
-				console.log(`[Stream] Tool call: ${event.data.tool_name} (${callId})`);
 				chatStore.appendThought({
 					id: callId,
 					type: 'tool',
@@ -441,7 +478,6 @@ function handleEvent(event: WsEvent) {
 		case 'tool_output': {
 			if (event.data && event.data.tool_name) {
 				const callId = event.data.call_id || event.data.tool_name;
-				console.log(`[Stream] Tool output: ${event.data.tool_name} (${callId})`);
 				const existingIndex = streamStore.thoughts.findIndex((t) => t.id === callId);
 
 				if (existingIndex !== -1) {
@@ -460,6 +496,7 @@ function handleEvent(event: WsEvent) {
 						content: event.data.output
 					});
 				}
+
 				chatStore.updateToolStatus(
 					callId,
 					event.data.tool_name,
@@ -474,14 +511,12 @@ function handleEvent(event: WsEvent) {
 		case 'tool_progress': {
 			if (event.data && event.data.tool_name) {
 				const callId = event.data.call_id || event.data.tool_name;
-				// 'status' is not in WsToolProgressEvent data usually, it implies running.
-				// But previous code used data.status. I'll assume 'running'.
 				const status = 'running';
 				const existingIndex = streamStore.thoughts.findIndex((t) => t.id === callId);
 
 				if (existingIndex !== -1) {
 					chatStore.updateThought(callId, {
-						status: status,
+						status,
 						header: event.data.header || `Using ${event.data.tool_name}...`,
 						progress: event.data.progress
 					});
@@ -491,10 +526,11 @@ function handleEvent(event: WsEvent) {
 						type: 'tool',
 						toolName: event.data.tool_name,
 						header: event.data.header || `Using ${event.data.tool_name}...`,
-						status: status,
+						status,
 						progress: event.data.progress
 					});
 				}
+
 				chatStore.updateToolStatus(
 					callId,
 					event.data.tool_name,
@@ -527,6 +563,7 @@ function handleEvent(event: WsEvent) {
 						content: event.data.error
 					});
 				}
+
 				chatStore.updateToolStatus(
 					callId,
 					event.data.tool_name,
@@ -539,11 +576,9 @@ function handleEvent(event: WsEvent) {
 		}
 
 		case 'usage_update':
-			// This is informational events for the UI
 			break;
 
 		case 'chunk':
-			// Text chunk of the final answer
 			if (event.data && event.data.text) {
 				appendToStream(event.data.text);
 			}
@@ -568,19 +603,14 @@ function handleEvent(event: WsEvent) {
 			chatStore.resetBuffer();
 			break;
 
-		// super_ego multi-agent debate events
 		case 'superego_round_start':
 			if (event.data) {
-				console.log(`[super_ego] Round ${event.data.round} started: ${event.data.title}`);
 				chatStore.startSuperEgoRound(event.data.round, event.data.title);
 			}
 			break;
 
 		case 'superego_agent_start':
 			if (event.data) {
-				console.log(
-					`[SuperEGO] Agent ${event.data.agent_name} (${event.data.agent_role}) starting in round ${event.data.round}`
-				);
 				chatStore.startSuperEgoAgent(
 					event.data.round,
 					event.data.agent_name,
@@ -591,9 +621,6 @@ function handleEvent(event: WsEvent) {
 
 		case 'superego_agent_message':
 			if (event.data) {
-				console.log(
-					`[SuperEGO] Agent ${event.data.agent_name} message received (${event.data.message.length} chars)`
-				);
 				chatStore.updateSuperEgoAgentMessage(
 					event.data.round,
 					event.data.agent_name,
@@ -604,30 +631,24 @@ function handleEvent(event: WsEvent) {
 
 		case 'superego_agent_done':
 			if (event.data) {
-				console.log(
-					`[SuperEGO] Agent ${event.data.agent_name} completed in round ${event.data.round}`
-				);
 				chatStore.completeSuperEgoAgent(event.data.round, event.data.agent_name);
 			}
 			break;
 
 		case 'superego_agent_error':
 			if (event.data) {
-				console.log(`[super_ego] Agent ${event.data.agent_name} error: ${event.data.error}`);
 				chatStore.errorSuperEgoAgent(event.data.round, event.data.agent_name, event.data.error);
 			}
 			break;
 
 		case 'superego_round_done':
 			if (event.data) {
-				console.log(`[super_ego] Round ${event.data.round} completed`);
 				chatStore.completeSuperEgoRound(event.data.round);
 			}
 			break;
 
 		case 'superego_debate_complete':
 			if (event.data) {
-				console.log('[super_ego] Debate completed');
 				chatStore.completeSuperEgoDebate(event.data.summary);
 			}
 			break;
@@ -640,16 +661,16 @@ function handleEvent(event: WsEvent) {
 	}
 }
 
-export function stopStream() {
-	if (activeAbortController) {
-		activeAbortController.abort();
-		activeAbortController = null;
+export function stopStream(reason: Exclude<AbortMode, null> = 'user_stop') {
+	if (activeAbortMeta) {
+		activeAbortMeta.mode = reason;
+		activeAbortMeta.controller.abort();
 	}
-	endStream();
 }
 
 export function disconnect() {
-	stopStream();
+	stopStream('disconnect');
+	endStream();
 }
 
 export function initializeVisibilityHandling() {
