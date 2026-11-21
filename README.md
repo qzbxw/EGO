@@ -1,65 +1,33 @@
-<div align="center">
-  <img src="backend/go-api/static/logodark.png" alt="EGO Logo" width="200" height="200">
-  <br />
-  
-  # E G O
-  
-  **The Autonomous AI Agent Operating System**
+# EGO
 
-  <p align="center">
-    <b>Think. Plan. Execute. Remember.</b><br>
-    EGO is a self-hosted, sandboxed AI platform that turns LLMs into stateful, autonomous agents capable of complex reasoning, coding, and long-term memory recall.
-  </p>
-</div>
+Self-hosted AI agent platform for planning tasks, running tools, and recalling prior context.
 
----
+![EGO sign-in screen](docs/ego-ui.png)
 
-## ⚡ What is EGO?
+## Tech Stack
 
-EGO is not just a chatbot. It is a **cognitive architecture** designed to overcome the limitations of stateless LLMs. It separates **System Orchestration** (Go) from **Cognitive Reasoning** (Python), creating a robust environment where AI can:
+Go · Python / FastAPI · SvelteKit / TypeScript · Docker · PostgreSQL / pgvector · MinIO
 
-1.  **Reason sequentially** before answering (Chain-of-Thought).
-2.  **Execute code** in a secure, isolated Docker sandbox.
-3.  **Retain context** across infinite sessions using Hybrid Search (Vector + Keyword).
-4.  **Plan autonomously**, breaking complex tasks into trackable steps.
+## Architecture Overview
 
-> _"Transparent, Powerful, Open, Deep, Flexible."_
+- SvelteKit provides the chat workspace and displays streamed responses.
+- The Go API orchestrates sessions, builds context, and dispatches tools.
+- A Python reasoning service handles model calls and agent reasoning.
+- Docker containers run code execution tools.
+- PostgreSQL and pgvector support hybrid retrieval. MinIO holds uploaded files.
 
----
+## Quick Start
 
-## 🧠 The Agent Loop (How it Works)
+Install Docker with Compose v2. Run these commands from the repository root.
+Set a strong database password and JWT secret in the editor. Set `API_ENCRYPTION_KEY` to 64 hex characters and configure the model credentials you plan to use.
 
-At the heart of EGO lies a sophisticated **Reasoning Loop**. Unlike standard RAG apps, EGO doesn't just retrieve and answer. It runs a recursive cognitive process:
-
-```mermaid
-graph TD
-    User[User Input] --> Context[Context Builder]
-    Context --> |History + RAG + Files| Brain[Python AI Engine]
-
-    subgraph "The Cognitive Loop"
-        Brain --> Think[Sequential Thinking]
-        Think --> |Self-Correction| Think
-        Think --> Decision{Need Tools?}
-
-        Decision -->|Yes| Tools[Tool Executor]
-        Tools --> |Code/Search/Plan| Sandbox[Docker Sandbox]
-        Sandbox --> |Result/Error| Brain
-
-        Decision -->|No| Synthesis[Final Synthesis]
-    end
-
-    Synthesis --> Stream[SSE Stream] --> User
-    Synthesis --> Memory[Vector Memory]
+```sh
+cp .env.example .env
+${EDITOR:-vi} .env
+docker compose up -d --build
 ```
 
-### The 4-Step Process
-
-1.  **Gather Context**: The system pulls relevant memories, file contents, and chat history.
-2.  **Take Action**: The agent decides if it needs to search the web, write Python code, or query its knowledge base.
-3.  **Verify Results**: Tool outputs are analyzed. If code fails, it debugs itself. If search is vague, it refines queries.
-4.  **Reflect & Refine**: The agent critiques its own reasoning before presenting the final answer.
-
----
+Open [EGO](http://localhost:8080).
 
 ## 🚀 Key Features
 
@@ -108,47 +76,6 @@ EGO switches its cognitive architecture based on the task:
 | **Database**     | **PostgreSQL 16**         | Relational data (Users, Sessions) + **pgvector** (Embeddings).                               |
 | **Storage**      | **MinIO**                 | Object storage for file attachments.                                                         |
 | **Infra**        | **Docker Compose**        | Orchestrates the entire stack including the Sandbox network.                                 |
-
----
-
-## ⚡ Getting Started
-
-### Prerequisites
-
-- Docker & Docker Compose
-- Git
-
-### 1. Clone & Config
-
-```bash
-git clone https://github.com/qzbxwv/EGO.git
-cd EGO
-
-# Create environment config
-cp .env.example .env
-```
-
-### 2. Configure Keys (`.env`)
-
-Open `.env` and add your API keys. EGO supports multiple providers, but **Google Gemini** is the default optimization.
-
-```ini
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
-# Database & S3 defaults usually work out-of-the-box for local dev
-```
-
-### 3. Launch
-
-```bash
-# Start all services (Backend, Frontend, DB, MinIO, Sandbox)
-docker compose up -d --build
-```
-
-### 4. Access
-
-- **Frontend**: [http://localhost:8080](http://localhost:8080)
-- **MinIO Console**: [http://localhost:9001](http://localhost:9001)
 
 ---
 
